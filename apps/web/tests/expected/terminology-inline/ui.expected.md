@@ -1,0 +1,44 @@
+- banner:
+  - navigation "Session hierarchy":
+    - button "{{workspace}}" [disabled]
+  - button "Session log":
+    - text: Session log
+    - img
+  - tablist:
+    - tab "Chat" [selected]
+    - tab "Trajectory"
+- text: Summarize the annotated vocabulary of this document. {{clock}}
+- button "Copy":
+  - img
+- paragraph:
+  - text: The
+  - 'button "Term Transformer: show explanation"': Transformer
+  - text: layer reads each token once.
+- paragraph:
+  - text: 本节用一句话说明
+  - 'button "Term 模型: show explanation"': 模型
+  - text: 的作用。
+- paragraph: TERMINOLOGY_FIXTURE_DONE
+- button "Copy":
+  - img
+- button "Good response":
+  - img
+- button "Bad response":
+  - img
+- button "Branch into a new conversation":
+  - img
+- button "Ran for {{duration}}":
+  - img
+  - text: Ran for {{duration}}
+- text: {{clock}}
+- textbox "Message or run a task... / commands, @ files or sessions"
+- button "Commands":
+  - img
+- button "Add attachment":
+  - img
+- 'button "Access mode, current: Workspace Write"': Workspace Write
+- button "Select model, current DeepSeek-V4-Flash":
+  - text: DeepSeek-V4-Flash
+  - img
+- button "Send message" [disabled]
+- text: 1 turns · 1 steps LLM {{duration}}

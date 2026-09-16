@@ -1,0 +1,7 @@
+# Assemble the terminology feature for the inline-annotation scenario.
+# `enabled: true` comes through the row config; explainProvider and
+# explainModel stay unconfigured, so the manual-lookup route answers
+# NO_MODEL_ROUTE and this lane only exercises glossary hits, never a model.
+- id: ui-terminology
+  config:
+    enabled: true
