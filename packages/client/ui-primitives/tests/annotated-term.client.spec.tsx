@@ -101,6 +101,21 @@ describe('AnnotatedTerm', () => {
     expect(tooltip(container)).toBeNull()
   })
 
+  it('opens on click when a press focuses the trigger before the click lands', () => {
+    const { container } = render(<AnnotatedTerm {...PROPS} />)
+    const trigger = triggerOf(container)
+    // Mouse and touch both deliver focus between pointerdown and click.
+    fireEvent.pointerEnter(trigger)
+    fireEvent.pointerDown(trigger)
+    fireEvent.focus(trigger)
+    expect(tooltip(container)).toBeNull()
+    fireEvent.pointerLeave(trigger)
+    fireEvent.click(trigger)
+    expect(tooltip(container)).not.toBeNull()
+    act(() => { vi.advanceTimersByTime(500) })
+    expect(tooltip(container)).not.toBeNull()
+  })
+
   it('keeps the tooltip free of interactive content', () => {
     const { container } = render(<AnnotatedTerm {...PROPS} />)
     fireEvent.focus(triggerOf(container))

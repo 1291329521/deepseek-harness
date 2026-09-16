@@ -29,15 +29,20 @@ export interface AnnotatedTermProps {
 /**
  * Render one annotation: a `<button>` trigger (so assistive tech and touch users
  * find a button in the accessibility tree, independent of any hover styling) whose
- * `role="tooltip"` body opens on hover (delayed), focus (immediate), or
+ * `role="tooltip"` body opens on hover (delayed), keyboard focus (immediate), or
  * click/tap (toggle) and closes on pointer-leave, blur, Escape, or an outside
- * pointerdown (WCAG 1.4.13: dismissible, hoverable, persistent).
+ * pointerdown (WCAG 1.4.13: dismissible, hoverable, persistent). A mouse or touch
+ * press brings focus before its click lands, so focus opened by a press defers
+ * to the click's toggle rather than being closed by it.
  * @param props - The authored span, its accessible name, and its explanation.
  * @returns The interactive span.
  */
 export function AnnotatedTerm({ text, label, explanation }: AnnotatedTermProps) {
   const [open, setOpen] = useState(false)
   const modeRef = useRef<OpenMode>('hover')
+  // A mouse or touch press focuses the button before its click arrives; focus
+  // from a press must not open, or the click's toggle would close it again.
+  const pressRef = useRef(false)
   const rootRef = useRef<HTMLSpanElement | null>(null)
   const openTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const tooltipId = useId()
@@ -85,17 +90,22 @@ export function AnnotatedTerm({ text, label, explanation }: AnnotatedTermProps) 
         aria-describedby={open ? tooltipId : undefined}
         onPointerEnter={armHoverOpen}
         onPointerLeave={leave}
+        onPointerDown={() => { pressRef.current = true }}
         onFocus={() => {
           clearOpenTimer()
           grace.cancel()
+          if (pressRef.current) return
           modeRef.current = 'focus'
           setOpen(true)
         }}
         onBlur={() => {
+          pressRef.current = false
           if (modeRef.current === 'focus') close()
         }}
         onClick={() => {
           clearOpenTimer()
+          grace.cancel()
+          pressRef.current = false
           if (open) setOpen(false)
           else {
             modeRef.current = 'click'
