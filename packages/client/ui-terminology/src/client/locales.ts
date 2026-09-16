@@ -1,0 +1,99 @@
+/**
+ * Terminology browser copy: annotation accessible names, the manual-lookup
+ * menu and panel, per-error-code explanation, and the settings card.
+ * @module @deepseek-ai/dsh-client-ui-terminology/src/client/locales
+ */
+
+/** Locale namespace owned by this plugin. */
+export const NS = 'ui-terminology'
+
+/** Chinese copy — the dictionary that fixes the key set. */
+export const zh = {
+  'term.label': '术语 {term}，查看解释',
+  'menu.explain': '解释「{term}」',
+  'panel.title': '术语解释',
+  'panel.loading': '正在请求解释…',
+  'panel.add': '加入术语表',
+  'panel.close': '关闭',
+  'panel.retry': '重试',
+  'panel.layer.global': '全局术语表',
+  'panel.layer.project': '本项目术语表',
+  'panel.layer.project.unavailable': '当前会话没有可用的项目术语表。',
+  'panel.added': '已加入术语表',
+  'panel.error.SESSION_NOT_FOUND': '会话已经关闭，无法解释这个术语。',
+  'panel.error.GLOSSARY_INVALID': '术语表文件无效，请先在设置里修正。',
+  'panel.error.TERM_INVALID': '这段文字太短或太长，不能作为术语解释。',
+  'panel.error.CONTEXT_TOO_LARGE': '选区所在的上下文过大，请缩小选择范围。',
+  'panel.error.NO_MODEL_ROUTE': '当前会话没有可用的模型路由，无法请求解释。',
+  'panel.error.LLM_FAILED': '模型没有返回可用解释，请重试。',
+  'panel.error.TIMEOUT': '解释请求超时，请重试。',
+  'panel.error.GLOSSARY_WRITE_FAILED': '写入术语表失败，请重试。',
+  'panel.error.NO_WORKSPACE': '当前会话没有工作区，无法使用项目术语表。',
+  'panel.error.SETTINGS_CONFLICT': '设置已被其他改动更新，请重试。',
+  'card.title': '术语解释',
+  'card.enabled': '在助手回复中标注术语',
+  'card.shortcut': '手动解释快捷键',
+  'card.shortcut.invalid': '快捷键无效，请使用「Alt+Shift+E」这类组合。',
+  'card.terms.title': '全局术语表',
+  'card.terms.term': '术语',
+  'card.terms.explanation': '解释',
+  'card.terms.newTerm': '新术语',
+  'card.terms.newExplanation': '新解释',
+  'card.terms.add': '添加术语',
+  'card.terms.remove': '删除术语',
+  'card.terms.empty': '还没有全局术语。',
+  'card.terms.conflict': '术语表已被其他改动更新，请重试。',
+  'card.project.title': '本项目术语表',
+  'card.project.empty': '项目术语表为空。',
+  'card.project.readonly': '项目术语表由工作区文件维护，这里只读。',
+  'card.project.open': '在编辑器中打开',
+  'card.project.openFailed': '无法在编辑器中打开项目术语表。',
+  'card.project.error': '项目术语表读取失败：{message}',
+}
+
+/** English copy; complete by construction against {@link zh}. */
+export const en: Record<TerminologyKey, string> = {
+  'term.label': 'Term {term}: show explanation',
+  'menu.explain': 'Explain "{term}"',
+  'panel.title': 'Term explanation',
+  'panel.loading': 'Requesting an explanation…',
+  'panel.add': 'Add to glossary',
+  'panel.close': 'Close',
+  'panel.retry': 'Retry',
+  'panel.layer.global': 'Global glossary',
+  'panel.layer.project': 'This project\'s glossary',
+  'panel.layer.project.unavailable': 'This session has no usable project glossary.',
+  'panel.added': 'Added to the glossary',
+  'panel.error.SESSION_NOT_FOUND': 'The session is closed, so this term cannot be explained.',
+  'panel.error.GLOSSARY_INVALID': 'The glossary file is invalid; fix it in settings first.',
+  'panel.error.TERM_INVALID': 'That text is too short or too long to explain as a term.',
+  'panel.error.CONTEXT_TOO_LARGE': 'The context around the selection is too large; select less.',
+  'panel.error.NO_MODEL_ROUTE': 'This session has no model route to request an explanation from.',
+  'panel.error.LLM_FAILED': 'The model returned no usable explanation; try again.',
+  'panel.error.TIMEOUT': 'The explanation request timed out; try again.',
+  'panel.error.GLOSSARY_WRITE_FAILED': 'The glossary write failed; try again.',
+  'panel.error.NO_WORKSPACE': 'This session has no workspace, so the project glossary is unavailable.',
+  'panel.error.SETTINGS_CONFLICT': 'Settings were updated elsewhere; try again.',
+  'card.title': 'Term explanations',
+  'card.enabled': 'Annotate terms in assistant replies',
+  'card.shortcut': 'Manual explanation shortcut',
+  'card.shortcut.invalid': 'Use a chord like "Alt+Shift+E".',
+  'card.terms.title': 'Global glossary',
+  'card.terms.term': 'Term',
+  'card.terms.explanation': 'Explanation',
+  'card.terms.newTerm': 'New term',
+  'card.terms.newExplanation': 'New explanation',
+  'card.terms.add': 'Add term',
+  'card.terms.remove': 'Remove term',
+  'card.terms.empty': 'No global terms yet.',
+  'card.terms.conflict': 'The glossary was updated elsewhere; try again.',
+  'card.project.title': 'This project\'s glossary',
+  'card.project.empty': 'The project glossary is empty.',
+  'card.project.readonly': 'The project glossary is maintained in its workspace file; read-only here.',
+  'card.project.open': 'Open in editor',
+  'card.project.openFailed': 'The project glossary could not be opened in the editor.',
+  'card.project.error': 'The project glossary could not be read: {message}',
+}
+
+/** Every copy key this plugin owns. */
+export type TerminologyKey = keyof typeof zh

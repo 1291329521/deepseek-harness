@@ -18,9 +18,9 @@ import { withFileLock, writeFileAtomic } from '@deepseek-ai/dsh-atomic-write'
 import { watch, type FSWatcher } from 'chokidar'
 import { stringify } from 'yaml'
 import { explainTerm, type ExplainRoute } from './explain.ts'
+import { TERMINOLOGY_NAMESPACE } from './namespace.ts'
 import {
   GLOSSARY_EXPLANATION_MAX_CHARS,
-  TERMINOLOGY_NAMESPACE,
   TerminologyConfigSchema,
   TerminologySettingsSchema,
   type TerminologyConfig,
@@ -125,13 +125,17 @@ export default class TerminologyService extends TypertRemoteService {
     }
     this.scope = this.ctx.settings.register(TERMINOLOGY_NAMESPACE, TerminologySettingsSchema, { base: this.base })
     this.ctx.effect(() => this.scope.watch(() => { this.notifyChanged(undefined) }), 'terminology:settings-watch')
+    // Project watchers start lazily, one per workspace, from reads and writes.
+    // Their release is owned here so one fiber disposal closes every live one.
+    this.ctx.effect(() => () => { this.closeWatchers() }, 'terminology:project-watch')
   }
 
   /**
    * Read one session's full render inputs.
    * @param request - Session identity.
-   * @returns Enabled flag, shortcut, project path, both layers, and any
-   * project-file read/parse error; `SESSION_NOT_FOUND` / `NO_WORKSPACE` otherwise.
+   * @returns Enabled flag, shortcut, selection length limit, project path,
+   * both layers, and any project-file read/parse error; `SESSION_NOT_FOUND` /
+   * `NO_WORKSPACE` otherwise.
    */
   @Remote('state')
   async state(request: TerminologyStateRequest): Promise<TerminologyStateResult> {
@@ -150,6 +154,7 @@ export default class TerminologyService extends TypertRemoteService {
     return ok<TerminologyState>({
       enabled: settings.enabled,
       shortcut: settings.explainShortcut,
+      termMaxChars: this.config.explainTermMaxChars,
       projectPath,
       projectTerms: project.terms,
       ...(project.error === undefined ? {} : { projectError: project.error }),
@@ -340,7 +345,13 @@ export default class TerminologyService extends TypertRemoteService {
       this.setProjectFile(projectPath, { terms: EMPTY_TERMS, error: `terminology: glossary watcher failed: ${errorMessage(error)}` })
     })
     this.watchers.set(projectPath, watcher)
-    this.ctx.effect(() => async () => { await watcher.close() }, 'terminology:project-watch')
+  }
+
+  /** Close every project watcher started so far and forget them. */
+  private closeWatchers(): void {
+    const watchers = [...this.watchers.values()]
+    this.watchers.clear()
+    for (const watcher of watchers) void watcher.close()
   }
 
   /** Re-read after a watcher event and publish the moved vocabulary. */

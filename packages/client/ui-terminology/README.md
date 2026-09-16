@@ -62,10 +62,21 @@ The Host service is `ctx.terminology` (a `TypertRemoteService` keyed `terminolog
 |---|---|
 | [`src/index.ts`](src/index.ts) | Service lifecycle, settings ownership, project-file cache and watcher, and the `state`/`remember`/`explain` remotes |
 | [`src/explain.ts`](src/explain.ts) | Framed explain input, pre-dispatch logging, deadline, and output rules |
+| [`src/namespace.ts`](src/namespace.ts) | The `terminology` key both halves join on, carried without schema runtime |
 | [`src/spec.ts`](src/spec.ts) | Host Config, settings schema, and the project file schema |
 | [`src/types.ts`](src/types.ts) | Remote payloads, the closed failure catalog, and the declaration-merged events |
 | [`src/glossary.ts`](src/glossary.ts) | Project file parsing and the two-layer merge |
-| [`src/client/index.ts`](src/client/index.ts) | Browser half entry |
+| [`src/client/index.ts`](src/client/index.ts) | Browser assembly: vocabulary, manual-lookup takeover, and both slot registrations |
+| [`src/client/resolver.ts`](src/client/resolver.ts) | Longest-first, case-sensitive, non-overlapping annotation scanner |
+| [`src/client/selection.ts`](src/client/selection.ts) | Which live selection the takeover may claim, and where it anchors |
+| [`src/client/shortcut.ts`](src/client/shortcut.ts) | Chord text parsing and exact-match key comparison |
+| [`src/client/overlay-policy.ts`](src/client/overlay-policy.ts) | Manual-lookup state machine: menu, loading, shown, failed, save |
+| [`src/client/card-policy.ts`](src/client/card-policy.ts) | Settings-card snapshot and whole-array term writes through the owner scope |
+| [`src/client/TerminologyOverlay.tsx`](src/client/TerminologyOverlay.tsx) | The takeover menu and the explanation dialog |
+| [`src/client/TerminologyCard.tsx`](src/client/TerminologyCard.tsx) | The settings page's terminology card |
+| [`src/client/locales.ts`](src/client/locales.ts) | `ui-terminology` dictionary (zh and en) |
+
+The browser half holds no subscription of its own. It pulls one session's vocabulary through `terminology.state` — every known session when none is bound, newest response winning — and publishes it to Chat through `ctx.provide('chatAnnotations', …)`: the resolver identity is reused while no term or explanation moved, so memoized Markdown survives a settings round trip, and `undefined` (no vocabulary, feature off, rejected read) leaves prose unannotated. Manual lookup is claimed on the document's capture-phase `contextmenu` and on the configured chord; a claimed gesture replaces the browser menu with its one Explain entry, and a refused one is left untouched. `OverlayPolicy` owns the lookup surface (`shell.overlay`) and `TerminologyCardPolicy` the settings entry (`settings.plugin.item`, key `terminology`); both are registered through `ctx.slots.inject`, so they arrive with the slot declaration and leave with the plugin fiber. `ok: false` from the Host — business failure or transport failure — is never shown as a usable feature: reads fold into no vocabulary, and a call that cannot run reports its own failure code in the dialog.
 
 </details>
 
@@ -119,13 +130,14 @@ None on the conversation; the auxiliary request shares no prefix with it and the
 
 <a id="known-limitations-and-deferred-work"></a>
 
-These limits apply to the rendered annotation behavior.
+These limits apply to the rendered annotation behavior and the project-file watcher.
 
 - **Matching runs inside one text node** — a term split across Markdown nodes is not annotated.
 - **Emphasis syntax splits words** — a term written as `Trans**former**` in source does not match the glossary entry.
 - **Chinese has no word boundaries** — a vocabulary containing `模型` also annotates the `模型` inside `大模型`; longest-term-first ordering and user-maintained vocabulary are the mitigation.
 - **Body explanations refresh on the next natural re-render** — a vocabulary change reaches already-rendered prose when the node re-renders, not by forced repaint.
 - **No download or export** — the feature offers none; if one is added, its format choice must be an explicit card-level control in the settings surface, never a tooltip entry.
+- **An externally deleted project glossary keeps its last read** — the watcher re-reads on `add` and `change` only, so the cached terms stay in effect until a write or a restart refreshes them.
 
 <a id="dev-note"></a>
 ### Dev Note

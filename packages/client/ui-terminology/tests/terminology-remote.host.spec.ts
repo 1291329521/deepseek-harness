@@ -7,7 +7,7 @@
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Context, Service } from '@deepseek-ai/cordis'
 import type { SettingsScope } from '@deepseek-ai/dsh-settings'
 import { SessionId } from '@deepseek-ai/dsh-session'
@@ -190,6 +190,7 @@ describe('TerminologyService remote contract', () => {
     expect(result.value).toEqual({
       enabled: true,
       shortcut: 'Alt+Shift+E',
+      termMaxChars: 64,
       projectPath: h.projectPath,
       projectTerms: [{ term: 'p1', explanation: 'project one' }],
       projectError: undefined,
@@ -226,6 +227,16 @@ describe('TerminologyService remote contract', () => {
       ok: false,
       error: { code: 'NO_WORKSPACE' },
     })
+  })
+
+  it('state reports a project glossary whose home directory cannot be prepared', async () => {
+    const h = await harness()
+    await writeFile(join(h.root, '.dsh'), 'a file where the directory belongs')
+    const result = await h.service.state({ sessionId })
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.value.projectTerms).toEqual([])
+    expect(result.value.projectError).toContain('cannot prepare project glossary directory')
   })
 })
 
@@ -310,6 +321,58 @@ describe('TerminologyService remember', () => {
     })
   })
 
+  it('rejects a write whose session is gone', async () => {
+    const h = await harness({ session: 'missing' })
+    await expect(h.service.remember({ sessionId, term: 'a', explanation: 'b', layer: 'global' })).resolves.toMatchObject({
+      ok: false,
+      error: { code: 'SESSION_NOT_FOUND' },
+    })
+  })
+
+  it('rejects a project-layer write for a session with no workspace', async () => {
+    const h = await harness({ session: 'no-cwd' })
+    await expect(h.service.remember({ sessionId, term: 'a', explanation: 'b', layer: 'project' })).resolves.toMatchObject({
+      ok: false,
+      error: { code: 'NO_WORKSPACE' },
+    })
+  })
+
+  it('rejects a project-layer write whose configured path leaves the workspace', async () => {
+    const h = await harness({ config: { projectGlossaryPath: '../outside.yml' } })
+    await expect(h.service.remember({ sessionId, term: 'a', explanation: 'b', layer: 'project' })).resolves.toMatchObject({
+      ok: false,
+      error: { code: 'NO_WORKSPACE', message: 'project glossary path "../outside.yml" must stay inside the workspace' },
+    })
+  })
+
+  it('refuses a configured project glossary path that is absolute', async () => {
+    const h = await harness({ config: { projectGlossaryPath: '/etc/terminology.yml' } })
+    await expect(h.service.state({ sessionId })).resolves.toMatchObject({
+      ok: false,
+      error: { code: 'NO_WORKSPACE' },
+    })
+  })
+
+  it('keeps one watcher across project writes, however they arrive', async () => {
+    const h = await harness()
+    await Promise.all([
+      h.service.remember({ sessionId, term: 'a', explanation: 'one', layer: 'project' }),
+      h.service.remember({ sessionId, term: 'b', explanation: 'two', layer: 'project' }),
+    ])
+    await h.service.remember({ sessionId, term: 'c', explanation: 'three', layer: 'project' })
+    const watchers = Reflect.get(h.service, 'watchers') as Map<string, unknown>
+    expect(watchers.size).toBe(1)
+    const state = await h.service.state({ sessionId })
+    // Whichever concurrent write takes the lock first lands first; every one
+    // of them survives.
+    const terms = state.ok ? state.value.projectTerms : []
+    expect([...terms].sort((left, right) => left.term.localeCompare(right.term))).toEqual([
+      { term: 'a', explanation: 'one' },
+      { term: 'b', explanation: 'two' },
+      { term: 'c', explanation: 'three' },
+    ])
+  })
+
   it('lets neither a throwing nor a rejecting observer veto a committed write', async () => {
     const h = await harness()
     h.ctx.on('terminology/changed', () => {
@@ -345,6 +408,44 @@ describe('TerminologyService project watcher', () => {
     await waitUntil(() => { expect(h.changed.length).toBeGreaterThan(0) })
     const state = await h.service.state({ sessionId })
     expect(state.ok && state.value.projectError).toContain('watch backend exploded')
+  })
+
+  it('stays silent on a re-read that states the same vocabulary and error', async () => {
+    const h = await harness()
+    await writeProjectFile(h, 'terms:\n  - term: keep\n    explanation: same\n')
+    await h.service.state({ sessionId })
+    await sleep(400)
+    // Same bytes through the write path: the watcher re-reads and finds nothing
+    // a client needs to hear about.
+    await writeProjectFile(h, 'terms:\n  - term: keep\n    explanation: same\n')
+    await sleep(900)
+    expect(h.changed).toEqual([])
+  })
+
+  it('ignores a watcher event that states no content change', async () => {
+    const h = await harness()
+    await h.service.state({ sessionId })
+    await sleep(400)
+    // Test-only reach into internals: chokidar offers no way to make a watched
+    // single file report a directory event, so the filter is driven directly.
+    const watchers = Reflect.get(h.service, 'watchers') as Map<string, { emit(event: string, ...args: unknown[]): void }>
+    watchers.get(h.projectPath)!.emit('all', 'addDir', h.projectPath)
+    await sleep(200)
+    expect(h.changed).toEqual([])
+  })
+
+  it('closes the project watcher when the owning fiber is disposed', async () => {
+    const h = await harness()
+    await h.service.state({ sessionId })
+    // Test-only reach into internals: chokidar exposes no observable close
+    // event, so the release is proven through the watcher's own `close`.
+    const watchers = Reflect.get(h.service, 'watchers') as Map<string, { close(): unknown }>
+    const close = vi.fn(() => Promise.resolve())
+    Reflect.set(watchers.get(h.projectPath)!, 'close', close)
+    const steps = cleanup.splice(0, 1)
+    for (const step of steps) await step()
+    await waitUntil(() => { expect(close).toHaveBeenCalledTimes(1) })
+    expect(watchers.size).toBe(0)
   })
 
   it('stops notifying after the owning fiber is disposed', async () => {

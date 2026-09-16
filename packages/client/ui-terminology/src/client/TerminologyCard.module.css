@@ -1,0 +1,91 @@
+/* Terminology settings card: the section, its fields, and both glossary layers. */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 22px;
+  color: var(--dsw-alias-label-primary);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--dsw-alias-label-primary);
+}
+
+/* The chord is wider than a number so a full "Alt+Shift+E" reads at a glance. */
+.field {
+  min-width: 180px;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 12px 0 0;
+  border: 0;
+  border-top: 0.5px solid var(--dsw-alias-border-l2);
+}
+
+.groupTitle {
+  padding: 0;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 18px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.termRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) max-content;
+  gap: 8px;
+  align-items: center;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--dsw-alias-label-primary);
+}
+
+.term,
+.explanation {
+  min-width: 0;
+}
+
+.error {
+  margin: 0;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-state-error-primary);
+}
+
+.empty,
+.note,
+.path {
+  margin: 0;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.path {
+  overflow-wrap: anywhere;
+}
+
+.projectList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}

@@ -24,7 +24,7 @@ function formatIssues(error: ZodError): string {
 export function parseProjectGlossary(body: string): readonly GlossaryTerm[] {
   const document = parseDocument(body, { uniqueKeys: true })
   if (document.errors.length > 0) {
-    throw new Error(`terminology: project glossary terms file is invalid YAML: ${document.errors[0]?.message ?? 'unknown error'}`)
+    throw new Error(`terminology: project glossary terms file is invalid YAML: ${document.errors.map(error => error.message).join('; ')}`)
   }
   const result = projectGlossaryFileSchema.safeParse(document.toJS())
   if (!result.success) {

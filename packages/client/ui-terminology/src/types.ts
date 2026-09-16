@@ -20,6 +20,8 @@ export interface TerminologyState {
   readonly enabled: boolean
   /** Effective keyboard shortcut, as resolved from the user settings layer. */
   readonly shortcut: string
+  /** Longest selection the manual lookup accepts, from the Host's own config. */
+  readonly termMaxChars: number
   /** Absolute path of the project glossary file resolved from the session workspace. */
   readonly projectPath: string
   readonly projectTerms: readonly GlossaryTerm[]

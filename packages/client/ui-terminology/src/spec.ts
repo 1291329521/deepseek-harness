@@ -7,9 +7,6 @@ import z from '@deepseek-ai/schemastery'
 import { z as zod } from 'zod'
 import type { GlossaryTerm } from './types.ts'
 
-/** Settings namespace owned by terminology; the browser card joins on this key. */
-export const TERMINOLOGY_NAMESPACE = 'terminology'
-
 /** Default manual-explain chord. */
 export const DEFAULT_EXPLAIN_SHORTCUT = 'Alt+Shift+E'
 

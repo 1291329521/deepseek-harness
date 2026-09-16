@@ -19,6 +19,13 @@ describe('mergeGlossary', () => {
       { term: '模型', explanation: 'global model' },
     ])
   })
+
+  it('orders two terms of the same length by their text', () => {
+    expect(mergeGlossary([{ term: 'bb', explanation: 'global' }], [{ term: 'aa', explanation: 'project' }])).toEqual([
+      { term: 'aa', explanation: 'project' },
+      { term: 'bb', explanation: 'global' },
+    ])
+  })
 })
 
 describe('parseProjectGlossary', () => {
