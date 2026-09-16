@@ -4,7 +4,7 @@ import { AssistantMarkdown } from './AssistantMarkdown.tsx'
 
 /** Streaming, settled, and interrupted Assistant states share one keyed renderer instance. */
 export const AssistantNodeView = memo(function AssistantNodeView({
-  node, useTurnData, turnProcess, openFile, renderMessageImages, fileMentions, t,
+  node, useTurnData, turnProcess, openFile, renderMessageImages, fileMentions, annotations, t,
 }: ChatNodeViewProps<'assistant-step'>) {
   const data = node.data
   const turn = node.location.kind === 'turn' || node.location.kind === 'step'
@@ -20,6 +20,9 @@ export const AssistantNodeView = memo(function AssistantNodeView({
     () => owner === undefined ? undefined : fileMentions(owner),
     [fileMentions, owner],
   )
+  // Read per render: the provider function keeps one identity for the whole plugin lifetime
+  // while a fresh resolver arrives per vocabulary revision, so no memo key tracks the resolver.
+  const resolver = annotations()
   const reasoningHidden = turnProcess !== undefined
     && turnProcess.foldable
     && turnProcess.spec.answerStep === data.step
@@ -35,6 +38,7 @@ export const AssistantNodeView = memo(function AssistantNodeView({
       reasoningHidden={reasoningHidden}
       revealProcess={revealProcess}
       mentions={mentions}
+      annotations={resolver}
       t={t}
     />
   )

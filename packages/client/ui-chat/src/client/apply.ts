@@ -119,6 +119,7 @@ export function apply(ctx: Context): void {
             ctx.layout.openDetails()
           },
           fileMentions: (owner: TurnTailOwnerProps) => ctx.get('chatFileMentions')?.forClosing(owner),
+          annotations: () => ctx.get('chatAnnotations')?.annotations(),
           openFile: async (path) => {
             const cwd = ctx.sessions.list.getSnapshot().byId[sessionId]?.cwd
             const result = await ctx.remote.session.openWorkspacePath({

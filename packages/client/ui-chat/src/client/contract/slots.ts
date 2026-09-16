@@ -10,7 +10,7 @@ import type {
   SlotHookFactory, SnapshotSelectorHook,
 } from '@deepseek-ai/dsh-client-ui-slots'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
-import type { MarkdownFileMentions } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { MarkdownAnnotations, MarkdownFileMentions } from '@deepseek-ai/dsh-client-ui-primitives'
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 import type { createChatStore } from '../stores.ts'
 import type { ToolCallId, SelectionTarget } from './store.ts'
@@ -52,10 +52,21 @@ export interface ChatFileMentions {
   forClosing(owner: TurnTailOwnerProps): MarkdownFileMentions | undefined
 }
 
+/** Optional prose-annotation provider consumed by Chat. */
+export interface ChatAnnotations {
+  /**
+   * Current annotation resolver.
+   * @returns The resolver for the live vocabulary, or undefined while the feature is off.
+   */
+  annotations(): MarkdownAnnotations | undefined
+}
+
 declare module '@deepseek-ai/cordis' {
   interface Context {
     /** Optional prose file-mention provider. */
     chatFileMentions: ChatFileMentions
+    /** Optional prose-annotation provider. */
+    chatAnnotations: ChatAnnotations
   }
 }
 
@@ -85,6 +96,7 @@ export interface ChatNodeOwnerProps {
   loadImage: MessageImageLoader
   renderMessageImages: RenderMessageImages
   fileMentions: (owner: TurnTailOwnerProps) => MarkdownFileMentions | undefined
+  annotations: () => MarkdownAnnotations | undefined
   /** Turn-process state when this Node belongs to a projected Turn. */
   turnProcess?: TurnProcessOwnerProps | undefined
 }
@@ -150,6 +162,7 @@ export interface ChatViewInjected {
   }
   forkAt: (seq: number) => void
   fileMentions: (owner: TurnTailOwnerProps) => MarkdownFileMentions | undefined
+  annotations: () => MarkdownAnnotations | undefined
 }
 
 /** Full Chat view props. */

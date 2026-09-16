@@ -185,4 +185,17 @@ describe('Chat inject API', () => {
     expect(injected.loadImage.peek?.(ATTACHMENT)).toBe(loaded)
     await b.runtime.dispose()
   })
+
+  it('reads the annotation resolver from the optional service, absent as off', async () => {
+    const b = await bench()
+    const { injected } = b.chatViewApi(ROOT)
+
+    expect(injected.annotations()).toBeUndefined()
+    const resolver = { split: vi.fn() } as never
+    const annotations = vi.fn(() => resolver)
+    b.runtime.ctx.provide('chatAnnotations', { annotations } as never)
+    expect(injected.annotations()).toBe(resolver)
+    expect(annotations).toHaveBeenCalledOnce()
+    await b.runtime.dispose()
+  })
 })
