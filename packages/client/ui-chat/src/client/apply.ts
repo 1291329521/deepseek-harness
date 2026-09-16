@@ -32,13 +32,20 @@ import { createChatStore } from './stores.ts'
 import { TranscriptViewPolicy } from './transcript-view.ts'
 import { CHAT_SETTINGS_NAMESPACE, type ChatSettings } from '../chat-settings.ts'
 import { useTurnDataValue } from './chat/use-turn-data.ts'
+import { useAnnotationsValue } from './chat/use-annotations.ts'
 
-const CHAT_NODE_INJECT: ChatNodeTurnDataInjected = {
-  hooks: {
-    turnData: (_standard, data) => function useTurnData(key) {
-      return useTurnDataValue(data, key)
+/** Keyed-renderer Hooks; the vocabulary service is read per Hook call so a provider mounted later is seen. */
+function createChatNodeInject(ctx: Context): ChatNodeTurnDataInjected {
+  return {
+    hooks: {
+      turnData: (_standard, data) => function useTurnData(key) {
+        return useTurnDataValue(data, key)
+      },
+      annotations: () => function useAnnotations() {
+        return useAnnotationsValue(ctx.get('chatAnnotations')?.vocabulary())
+      },
     },
-  },
+  }
 }
 
 /** Services required by the Chat target and its presentation registrations. */
@@ -99,7 +106,9 @@ export function apply(ctx: Context): void {
       label: () => t('view.chat'),
       locale: NS,
       children: {
-        'conversation.chat.node': { kind: 'keyed', scope: 'session', inject: CHAT_NODE_INJECT },
+        'conversation.chat.node': {
+          kind: 'keyed', scope: 'session', inject: createChatNodeInject(ctx),
+        },
         'conversation.message.images': { kind: 'single', scope: 'session' },
       },
       store: chatStore,
@@ -119,7 +128,6 @@ export function apply(ctx: Context): void {
             ctx.layout.openDetails()
           },
           fileMentions: (owner: TurnTailOwnerProps) => ctx.get('chatFileMentions')?.forClosing(owner),
-          annotations: () => ctx.get('chatAnnotations')?.annotations(),
           openFile: async (path) => {
             const cwd = ctx.sessions.list.getSnapshot().byId[sessionId]?.cwd
             const result = await ctx.remote.session.openWorkspacePath({

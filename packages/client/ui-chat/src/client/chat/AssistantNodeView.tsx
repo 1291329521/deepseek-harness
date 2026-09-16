@@ -4,7 +4,7 @@ import { AssistantMarkdown } from './AssistantMarkdown.tsx'
 
 /** Streaming, settled, and interrupted Assistant states share one keyed renderer instance. */
 export const AssistantNodeView = memo(function AssistantNodeView({
-  node, useTurnData, turnProcess, openFile, renderMessageImages, fileMentions, annotations, t,
+  node, useTurnData, turnProcess, openFile, renderMessageImages, fileMentions, useAnnotations, t,
 }: ChatNodeViewProps<'assistant-step'>) {
   const data = node.data
   const turn = node.location.kind === 'turn' || node.location.kind === 'step'
@@ -20,9 +20,9 @@ export const AssistantNodeView = memo(function AssistantNodeView({
     () => owner === undefined ? undefined : fileMentions(owner),
     [fileMentions, owner],
   )
-  // Read per render: the provider function keeps one identity for the whole plugin lifetime
-  // while a fresh resolver arrives per vocabulary revision, so no memo key tracks the resolver.
-  const resolver = annotations()
+  // The Hook subscribes to the provider's vocabulary observable: a resolver
+  // that lands after this settled render re-renders this Node.
+  const resolver = useAnnotations()
   const reasoningHidden = turnProcess !== undefined
     && turnProcess.foldable
     && turnProcess.spec.answerStep === data.step

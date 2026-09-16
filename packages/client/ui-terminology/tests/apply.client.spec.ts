@@ -51,7 +51,7 @@ interface Bench {
   readonly explain: ReturnType<typeof vi.fn>
   readonly remember: ReturnType<typeof vi.fn>
   readonly openWorkspacePath: ReturnType<typeof vi.fn>
-  readonly annotations: () => ReturnType<ChatAnnotations['annotations']>
+  readonly annotations: () => ReturnType<ReturnType<ChatAnnotations['vocabulary']>['getSnapshot']>
   readonly overlay: () => OverlayRequest | null
   readonly card: () => TerminologyCardInjected
   readonly settle: () => Promise<void>
@@ -110,7 +110,7 @@ async function bench(options: {
     explain,
     remember,
     openWorkspacePath,
-    annotations: () => (runtime.ctx.get('chatAnnotations') as ChatAnnotations).annotations(),
+    annotations: () => (runtime.ctx.get('chatAnnotations') as ChatAnnotations).vocabulary().getSnapshot(),
     overlay: () => overlayFace(runtime).hooks.terminologyOverlay.getSnapshot(),
     card: () => cardFace(runtime),
     settle,

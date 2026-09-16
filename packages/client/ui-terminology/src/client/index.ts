@@ -79,27 +79,29 @@ export function apply(ctx: Context): void {
   const state = createSnapshotStore<TerminologyState | null>(null)
   let vocabulary: readonly GlossaryTerm[] = []
   let vocabularyKey = ''
-  let resolver: MarkdownAnnotations | undefined
+  // The published vocabulary observable: one source for the plugin lifetime;
+  // its snapshot keeps one identity while the vocabulary is unchanged.
+  const annotations = createSnapshotStore<MarkdownAnnotations | undefined>(undefined)
 
   const rebuild = (): void => {
     const current = state.getSnapshot()
     if (current === null || !current.enabled) {
       vocabulary = []
       vocabularyKey = ''
-      resolver = undefined
+      annotations.set(undefined)
       return
     }
     const merged = mergeVocabulary(current)
     // A refetch that changes no term and no explanation keeps the published
     // resolver, so Chat's memoized Markdown survives a settings round trip.
     const key = merged.map(entry => `${entry.term}\u0000${entry.explanation}`).join('\n')
-    if (key === vocabularyKey && resolver !== undefined) return
+    if (key === vocabularyKey && annotations.getSnapshot() !== undefined) return
     vocabularyKey = key
     vocabulary = merged
-    resolver = createTerminologyResolver(merged, term => t('term.label', { term }))
+    annotations.set(createTerminologyResolver(merged, term => t('term.label', { term })))
   }
   ctx.effect(() => state.subscribe(rebuild), 'ui-terminology: vocabulary rebuild')
-  ctx.provide('chatAnnotations', { annotations: () => resolver } satisfies ChatAnnotations)
+  ctx.provide('chatAnnotations', { vocabulary: () => annotations } satisfies ChatAnnotations)
 
   let fetches = 0
   const refetch = async (): Promise<void> => {

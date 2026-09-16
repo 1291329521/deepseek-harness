@@ -9,7 +9,7 @@ import type {
   InjectFace, KeyedSnapshotSelectorHook, PropsLocale, PropsRenderSlots, PropsRuntime, PropsStore,
   SlotHookFactory, SnapshotSelectorHook,
 } from '@deepseek-ai/dsh-client-ui-slots'
-import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
+import type { ObservableSnapshot, SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { MarkdownAnnotations, MarkdownFileMentions } from '@deepseek-ai/dsh-client-ui-primitives'
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 import type { createChatStore } from '../stores.ts'
@@ -55,10 +55,16 @@ export interface ChatFileMentions {
 /** Optional prose-annotation provider consumed by Chat. */
 export interface ChatAnnotations {
   /**
-   * Current annotation resolver.
-   * @returns The resolver for the live vocabulary, or undefined while the feature is off.
+   * Observable over the current annotation resolver.
+   *
+   * The provider delivers the bare observable and keeps both identities
+   * stable: the source object stays one for the provider lifetime, and the
+   * snapshot keeps one identity while the vocabulary is character-for-character
+   * unchanged, so only moved vocabulary notifies subscribed renders. The
+   * snapshot is undefined while the feature is off.
+   * @returns The vocabulary observable.
    */
-  annotations(): MarkdownAnnotations | undefined
+  vocabulary(): ObservableSnapshot<MarkdownAnnotations | undefined>
 }
 
 declare module '@deepseek-ai/cordis' {
@@ -75,9 +81,15 @@ export type UseChatNodeTurnData = <Key extends Extract<keyof ConversationTurnDat
   key: Key,
 ) => Readonly<ConversationTurnDataMap[Key]> | undefined
 
+/** Hook subscribing one keyed Chat renderer to the prose-annotation vocabulary. */
+export type UseChatAnnotations = () => MarkdownAnnotations | undefined
+
 /** Slot-level Hook factory for keyed Chat renderers. */
 export interface ChatNodeTurnDataInjected {
-  hooks: { turnData: SlotHookFactory<'conversation.chat.node', UseChatNodeTurnData> }
+  hooks: {
+    turnData: SlotHookFactory<'conversation.chat.node', UseChatNodeTurnData>
+    annotations: SlotHookFactory<'conversation.chat.node', UseChatAnnotations>
+  }
 }
 
 /** Stable owner currency delivered to a keyed Chat renderer. */
@@ -96,7 +108,6 @@ export interface ChatNodeOwnerProps {
   loadImage: MessageImageLoader
   renderMessageImages: RenderMessageImages
   fileMentions: (owner: TurnTailOwnerProps) => MarkdownFileMentions | undefined
-  annotations: () => MarkdownAnnotations | undefined
   /** Turn-process state when this Node belongs to a projected Turn. */
   turnProcess?: TurnProcessOwnerProps | undefined
 }
@@ -162,7 +173,6 @@ export interface ChatViewInjected {
   }
   forkAt: (seq: number) => void
   fileMentions: (owner: TurnTailOwnerProps) => MarkdownFileMentions | undefined
-  annotations: () => MarkdownAnnotations | undefined
 }
 
 /** Full Chat view props. */
