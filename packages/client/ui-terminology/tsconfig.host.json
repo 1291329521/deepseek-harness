@@ -1,0 +1,18 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "lib/types",
+    "tsBuildInfoFile": "lib/tsconfig.host.tsbuildinfo"
+  },
+  "files": ["src/index.ts", "src/spec.ts", "src/types.ts", "src/glossary.ts"],
+  "references": [
+    { "path": "../../../vendor/cordis" },
+    { "path": "../../../vendor/schemastery" },
+    { "path": "../../core/session" },
+    { "path": "../../llm/llm" },
+    { "path": "../../settings/settings" },
+    { "path": "../../typert/protocol" },
+    { "path": "../../util/atomic-write" }
+  ]
+}

@@ -283,6 +283,10 @@
     - id: ui-message-feedback
       name: '@deepseek-ai/dsh-client-ui-message-feedback'
 
+    # Inline terminology: two-layer glossary over the terminology Remote.
+    - id: ui-terminology
+      name: '@deepseek-ai/dsh-client-ui-terminology'
+
     # Model selection: the /model popupSelect + composer seat over session.models.
     - id: ui-model-selection
       name: '@deepseek-ai/dsh-client-ui-model-selection'
