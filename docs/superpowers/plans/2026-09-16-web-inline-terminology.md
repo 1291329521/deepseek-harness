@@ -930,10 +930,10 @@ export interface TerminologyExplainRequestEventData {
 declare module '@deepseek-ai/dsh-session/types' {
   interface SessionEventMap {
     /**
-     * Pre-dispatch record of one user-triggered terminology explanation request.
-     * Log-only: it mirrors the exact framed model input so the request is
-     * reconstructable from the Session log, and is appended with the envelope's
-     * `ignorable: true` so builds without this type still read the log.
+     * Pre-dispatch record of one user-triggered terminology explanation
+     * request: the exact framed model input, appended in the same two-argument
+     * log-only form as `session/title-llm-request`, so the request is
+     * reconstructable from the Session log.
      */
     'terminology/explain-request': TerminologyExplainRequestEventData
   }
@@ -1422,7 +1422,7 @@ export interface ExplainDeps {
   readonly route: ExplainRoute
   readonly config: ExplainPolicy
   readonly stream: (options: GenerateOptions) => AsyncIterable<unknown>
-  readonly append: (event: 'terminology/explain-request', payload: TerminologyExplainRequestEventData, options?: { ignorable?: boolean }) => void
+  readonly append: (event: 'terminology/explain-request', payload: TerminologyExplainRequestEventData) => void
   readonly sessionId?: ExplainSessionRef
 }
 
@@ -1490,7 +1490,7 @@ export async function explainTerm(deps: ExplainDeps, input: ExplainInput): Promi
     messages,
     route: deps.route,
     maxTokens: deps.config.maxTokens,
-  }, { ignorable: true })
+  })
   const assembler = new BlockAssembler()
   try {
     for await (const chunk of deps.stream(options)) {
@@ -1517,7 +1517,7 @@ export async function explainTerm(deps: ExplainDeps, input: ExplainInput): Promi
 }
 ```
 
-`deadline()` 的实际入参以 `packages/session/session-title-llm/src/index.ts:253` 为准（它传 `request.signal`）：这里没有 caller signal，构造 `new AbortController()` 并 `setTimeout(() => controller.abort(), timeoutMs).unref()` 的写法替换上面那行 `AbortSignal.timeout` 三元——两形选一，禁止保留未定形。`session.append(..., { ignorable: true })` 的 options 位置参数以 `packages/core/session` 的 append 签名实测为准（`ignorable: true` 在信封上，见 `docs/` 版本机制 note）。
+`deadline()` 的实际入参以 `packages/session/session-title-llm/src/index.ts:253` 为准（它传 `request.signal`）：这里没有 caller signal，构造 `new AbortController()` 并 `setTimeout(() => controller.abort(), timeoutMs).unref()` 的写法替换上面那行 `AbortSignal.timeout` 三元——两形选一，禁止保留未定形。`session.append('terminology/explain-request', payload)` 用与 `session/title-llm-request` 相同的二参 log-only 形态：`Session.append` 对非 surface 类型不接受第三个实参，`ignorable` 是读取侧信封字段、一方写者不经 append 设置（`session-title-llm` 即此先例）。
 
 类内接入（`src/index.ts`）：`static inject` 已含 `llm`、`sessionProjections`；加方法：
 
@@ -1830,7 +1830,7 @@ git commit -m "feat(ui-terminology): add the browser annotation provider, manual
 创建 `tests/annotations-composition.spec.ts`，结构逐段照抄 `packages/feedback/message-feedback/tests/loader-composition.spec.ts`（Loader + `cordis:include` + modules map；把 `terminology` 行、`settings`（内存 provider 或 file provider + tmpdir）、stub `llm` provider 写进 test-only cordis.yml 字符串），断言经服务面而非构造器：
 
 - `state`：tmpdir 会话 workspace 下写 `.dsh/terminology.yml`，settings 文档写全局层，断言返回两层与合并路径、`projectError` 非法时为字符串；
-- `explain`：stub llm 固定吐文本，断言返回文本 + **会话日志里存在 `terminology/explain-request` 事件**（`session.snapshotEvents()`），其 payload 的 `system`/`messages` 含 term，事件可用 `ignorable` 语义被未知类型读取方跳过（断言读取旧格式构建器不抛出——按 `gen-persistence-catalog` 的目录行为断言目录含该类型即可）；
+- `explain`：stub llm 固定吐文本，断言返回文本 + **会话日志里存在 `terminology/explain-request` 事件**（`session.snapshotEvents()`），其 payload 的 `system`/`messages` 含 term，事件类型经 `gen-persistence-catalog` 进入目录（断言目录含该类型）；
 - `remember` → 发出 `terminology/changed`（监听后 await）。
 - HMR 规矩：dispose fiber 后 remote 方法不可再达、watcher 关闭（对 tmpdir 文件再改动不再触发事件）。
 
@@ -1905,5 +1905,5 @@ git commit -m "docs(ui-terminology): document the terminology feature and record
 ## 自检记录（作者自查，非执行步骤）
 
 - 规格覆盖度：spec §4（任务 1、2）、§5（任务 3 步骤 1-3、任务 4 步骤 4）、§6.1/6.2/6.3（任务 3）、§6.4/6.5（任务 4）、§7.1-7.5（任务 5）、§8 四约束（任务 1 组件测试 + 任务 5 断言 + README 约束 + e2e tooltip 零按钮）、§9 每行（任务 1/2/3/4/5/6 对应步骤）、§10 PR 拆分（任务即 PR，注册面按「每任务可独立绿」重排并在头部声明）。
-- 占位符扫描：所有代码步骤含可编译代码；对无法在计划期钉死的仓库 API（`writeFileAtomic` options、`append` ignorable 位置参数、`stateOf.lastUsed`、hook 桩类型）已写明"以某文件实测为准"的核对步骤，属执行期的一次读文件动作，不是待定设计。
+- 占位符扫描：所有代码步骤含可编译代码；对无法在计划期钉死的仓库 API（`writeFileAtomic` options、`append` 形态、`stateOf.lastUsed`、hook 桩类型）已写明"以某文件实测为准"的核对步骤，属执行期的一次读文件动作，不是待定设计。
 - 类型一致性：`MarkdownAnnotations/MarkdownSegment/AnnotatedTerm`（任务 1 定义，任务 2/5 引用）；`ChatAnnotations.annotations()`（任务 2 定义，任务 5 provide）；`GlossaryTerm/TerminologyState/TerminologyResult`（任务 3 定义，任务 4/5 引用）；`TERMINOLOGY_NAMESPACE`（任务 3 spec.ts，任务 5 卡片 key）；remote 方法名 `state/explain/remember` 与客户端 `ctx.remote.terminology.*` 调用一致。

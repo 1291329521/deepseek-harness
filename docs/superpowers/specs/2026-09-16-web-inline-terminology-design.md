@@ -334,7 +334,7 @@ Under the repository rule "model-visible ⟺ logged", the model request behind `
 'terminology/explain-request'
 ```
 
-Its payload carries the framework input: `{ term, context, system, messages, route, maxTokens }`. It is appended with `ignorable: true`, so an older build that does not know the type can still read the log instead of refusing the whole file. The event type and its payload schema belong to this package, declared in `packages/client/ui-terminology/src/types.ts`, and the `gen-persistence-catalog` generator produces and checks the catalog.
+Its payload carries the framework input: `{ term, context, system, messages, route, maxTokens }`. The append uses the same two-argument log-only form as `session/title-llm-request`: once `gen-persistence-catalog` admits the type to the KNOWN catalog, current builds read the log; builds older than the type refuse it, matching the posture that precedent accepted. The event type and its payload schema belong to this package, declared in `packages/client/ui-terminology/src/types.ts`, and the `gen-persistence-catalog` generator produces and checks the catalog.
 
 The glossary itself, the match results, and the panel state **never enter the log** (principle two in 1.3).
 
@@ -436,7 +436,7 @@ The repository uses stacked PRs, so "all at once" means one design delivered as 
 2. **A term split across nodes is not recognized.** A term broken in the middle by Markdown emphasis syntax (such as `Trans*former*`) does not match. That follows directly from matching inside a single text node, and it buys implementation simplicity and zero collateral damage.
 3. **Matching in prose is literal, with no word boundaries and no tokenization.** Chinese has no natural word boundary, so a glossary entry of `模型` will also mark the `模型` inside "模型化" and "大模型". The mitigations are longest-term-first ordering and a user-maintained glossary; this phase introduces no tokenizer. This belongs in the package README's Known Limitations.
 4. **Manual recognition reads the DOM selection.** It is the only place in the design that reads the DOM, with the bounds stated in 7.3: read-only, no mutation, no observer, and inputs excluded. If the repository later offers an official selection or context-menu seam, this should migrate to it.
-5. **`terminology/explain-request` is a new durable event type**, adding one more event kind to the session log. It is appended with `ignorable: true`, so older builds can still read it.
+5. **`terminology/explain-request` is a new durable event type**, adding one more event kind to the session log. Builds older than it refuse the log under the existing version mechanism, the same posture accepted when `session/title-llm-request` was introduced.
 6. **Touch has no hover.** A term link therefore needs a visible interactive cue in its resting state, and its behaviour tests must run under a `hasTouch` context rather than only in a desktop pointer environment.
 
 ## Appendix A: Alternatives Considered and Rejected

@@ -334,7 +334,7 @@ export interface Config {
 'terminology/explain-request'
 ```
 
-载荷携带框架输入：`{ term, context, system, messages, route, maxTokens }`。追加时带 `ignorable: true`，这样不认识该类型的旧构建仍能读这份日志，而不是拒收整份日志。事件类型与载荷 schema 由本包拥有，声明在 `packages/client/ui-terminology/src/types.ts`，并由 `gen-persistence-catalog` 生成/校验目录。
+载荷携带框架输入：`{ term, context, system, messages, route, maxTokens }`。追加采用与 `session/title-llm-request` 相同的二参 log-only 形态：类型经 `gen-persistence-catalog` 进入 KNOWN 目录后当前构建读取无碍；不认识该类型的更早构建拒读该日志，与该先例已接受的姿态一致。事件类型与载荷 schema 由本包拥有，声明在 `packages/client/ui-terminology/src/types.ts`，并由 `gen-persistence-catalog` 生成/校验目录。
 
 术语表本身、命中结果、浮层状态**不进日志**（第 1.3 节原则二）。
 
@@ -436,7 +436,7 @@ open → (glossary hit?) ──yes──▶ show explanation
 2. **跨节点的词不识别。** 被 markdown 强调语法从中间劈开的术语（如 `Trans*former*`）不会命中。这是"在单个 text 节点内匹配"的直接后果，换取的是实现简单与零误伤。
 3. **正文里的匹配是字面匹配，没有词边界与分词。** 中文没有天然词边界，术语表里放 `模型` 会把"模型化""大模型"里的 `模型` 也标上。缓解手段是长词优先排序 + 词表由用户维护；本期不引入分词器。这条要写进包 README 的 Known Limitations。
 4. **手动识别读 DOM 选区。** 这是设计里唯一直接读 DOM 的地方，边界已在 7.3 写明：只读、不改、不用观察器、放行输入框。若将来仓库提供官方的选区/上下文菜单接缝，应迁移过去。
-5. **`terminology/explain-request` 是新的持久化事件类型**，会让会话日志多一种事件。带 `ignorable: true` 追加，旧构建可读。
+5. **`terminology/explain-request` 是新的持久化事件类型**，会让会话日志多一种事件。早于它的构建按既有版本机制拒读该日志，与 `session/title-llm-request` 引入时的姿态一致。
 6. **触屏没有 hover。** 因此术语链接默认态必须有可见的可交互线索，行为测试必须在 `hasTouch` context 下跑，不能只在桌面鼠标环境验证。
 
 ## 附录 A：备选方案与否决理由
