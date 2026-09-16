@@ -23,6 +23,7 @@ import type * as Md from 'mdast'
 import type {} from 'mdast-util-math'
 import { normalizeUri } from 'micromark-util-sanitize-uri'
 import { CodeBlock } from './CodeBlock.tsx'
+import { AnnotatedTerm } from './AnnotatedTerm.tsx'
 import { renderTexToReact } from './katex.tsx'
 import { LinkIcon, classifyLinkPath } from '../LinkIcon.tsx'
 import type { PositionedBlock } from './incremental.ts'
@@ -123,6 +124,33 @@ export interface MarkdownFileMentions {
 }
 
 /**
+ * Prose annotation affordance: the owner decides which authored spans carry an
+ * explanation, using its own vocabulary — the renderer never guesses at what
+ * looks like a term.
+ */
+export interface MarkdownAnnotations {
+  /**
+   * Split one authored text run into its renderable segments.
+   * @param value - The text node's literal value, exactly as authored.
+   * @returns Contiguous segments whose concatenated text is exactly `value`.
+   */
+  split(value: string): readonly MarkdownSegment[]
+}
+
+/** One contiguous piece of an authored text run. */
+export type MarkdownSegment =
+  | { readonly kind: 'text'; readonly text: string }
+  | {
+    readonly kind: 'annotation'
+    /** The exact authored substring this annotation covers. */
+    readonly text: string
+    /** Accessible name for the interactive span; locale-owned by the provider. */
+    readonly label: string
+    /** Explanation shown while the span is hovered, focused, or activated. */
+    readonly explanation: string
+  }
+
+/**
  * One render pass's state: immutable options and targets plus the footnote
  * numbering accumulated in document order while references render.
  */
@@ -135,6 +163,8 @@ export interface MarkdownRenderContext {
   readonly inBlockquote?: boolean
   /** Inline-code file mentions; absent wherever no opener vocabulary exists. */
   readonly fileMentions: MarkdownFileMentions | undefined
+  /** Prose annotations; absent wherever no vocabulary is mounted or while streaming. */
+  readonly annotations: MarkdownAnnotations | undefined
   /** Inside an anchor's children: interactive mentions must not nest there. */
   readonly inLink?: boolean
   /** Reference targets visible to this pass. */
@@ -212,10 +242,31 @@ function renderChildren(
   return nodes.map((node, index) => renderNode(node, index, context))
 }
 
+/**
+ * Render one authored text run through the mounted vocabulary.
+ * @param value - The text node's literal value, exactly as authored.
+ * @param key - The text node's render key; segments derive stable child keys from it.
+ * @param annotations - The mounted vocabulary.
+ * @returns One React node per segment; a run with no annotation segment renders
+ * the authored string unchanged, so an empty segment list loses nothing.
+ */
+function renderAnnotatedText(value: string, key: Key, annotations: MarkdownAnnotations): ReactNode {
+  const segments = annotations.split(value)
+  if (!segments.some(segment => segment.kind === 'annotation')) return value
+  return segments.map((segment, index) => segment.kind === 'text'
+    ? segment.text
+    : <AnnotatedTerm key={`${String(key)}:${index}`} text={segment.text} label={segment.label} explanation={segment.explanation} />)
+}
+
 function renderNode(node: Md.RootContent, key: Key, context: MarkdownRenderContext): ReactNode {
   switch (node.type) {
     case 'text':
-      return node.value
+      // Without a mounted vocabulary the run is the authored string, so the
+      // DOM stays byte-for-byte the pinned one. Inside an anchor the run stays
+      // literal too — a button cannot nest in an anchor.
+      return context.annotations === undefined || context.inLink === true
+        ? node.value
+        : renderAnnotatedText(node.value, key, context.annotations)
     case 'paragraph':
       return <p key={key}>{renderChildren(node.children, context)}</p>
     case 'heading':

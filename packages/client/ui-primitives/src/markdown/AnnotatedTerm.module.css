@@ -1,0 +1,49 @@
+/* Inline annotation: the trigger stays in the prose flow and carries its own
+ * explanation bubble, anchored to the span so the bubble survives line wraps. */
+.root {
+  position: relative;
+  display: inline;
+}
+
+/* Term trigger (fileMention chrome parity): the prose's own font and color, so
+ * annotating a run never restyles it. The dotted underline and `help` cursor
+ * are the non-hover affordance WCAG 1.4.13 requires of a hoverable explanation. */
+.term {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  cursor: help;
+  text-decoration: underline dotted;
+  text-decoration-color: var(--dsw-alias-label-tertiary);
+  text-underline-offset: 3px;
+}
+
+.term:focus-visible {
+  outline: 2px solid var(--dsw-alias-state-business-primary);
+  outline-offset: 2px;
+}
+
+/* Explanation card: the menu surface and its prominent elevation (the HoverCard
+ * and Menu precedent), 6px under the term. */
+.tooltip {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 6px);
+  z-index: 100;
+  display: block;
+  box-sizing: border-box;
+  max-width: 280px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--dsw-specific-menu);
+  color: var(--dsw-alias-label-primary);
+  box-shadow: var(--dsw-elevation-prominent);
+  /* --dsw-font-xs-13 is the whole font shorthand (size/line-height/family), so
+   * it replaces all three properties here. */
+  font: var(--dsw-font-xs-13);
+  white-space: pre-wrap;
+}

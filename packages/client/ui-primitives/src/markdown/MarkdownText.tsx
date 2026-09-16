@@ -19,17 +19,18 @@ import {
   collectReferenceTargets, createReferenceTargets, renderBlocks, renderFootnoteSection,
   wrapBlockChildren,
 } from './render.tsx'
-import type { MarkdownFileMentions, MarkdownLabels, MarkdownRenderContext, ReferenceTargets } from './render.tsx'
+import type { MarkdownAnnotations, MarkdownFileMentions, MarkdownLabels, MarkdownRenderContext, ReferenceTargets } from './render.tsx'
 import 'katex/dist/katex.min.css'
 import css from './MarkdownText.module.css'
 
-export type { MarkdownCodeLabels, MarkdownFileMentions, MarkdownLabels } from './render.tsx'
+export type { MarkdownAnnotations, MarkdownCodeLabels, MarkdownFileMentions, MarkdownLabels, MarkdownSegment } from './render.tsx'
 
 /** One settled full render: parse with math, resolve references, append the footnote section. */
 function renderSettled(
   text: string,
   labels: MarkdownLabels,
   fileMentions: MarkdownFileMentions | undefined,
+  annotations: MarkdownAnnotations | undefined,
 ): ReactNode[] {
   const root = parseGfmWithMath(text)
   const targets = createReferenceTargets()
@@ -38,6 +39,7 @@ function renderSettled(
     streaming: false,
     labels,
     fileMentions,
+    annotations,
     targets,
     footnoteOrder: [],
     footnoteCounts: new Map(),
@@ -106,6 +108,7 @@ class StreamingRenderer {
         streaming: true,
         labels: this.labels,
         fileMentions: undefined,
+        annotations: undefined,
         targets: frameTargets,
         footnoteOrder: this.frozenFootnoteOrder,
         footnoteCounts: this.frozenFootnoteCounts,
@@ -124,6 +127,7 @@ class StreamingRenderer {
       streaming: true,
       labels: this.labels,
       fileMentions: undefined,
+      annotations: undefined,
       targets: frameTargets,
       footnoteOrder: [...this.frozenFootnoteOrder],
       footnoteCounts: new Map(this.frozenFootnoteCounts),
@@ -153,29 +157,34 @@ class StreamingRenderer {
  * links inline-code tokens its resolver recognizes as real files; this is
  * the single streaming gate — it applies to settled renders only, because a
  * streaming message's vocabulary is not final and frozen cached elements
- * must not bake in handlers that could go stale.
+ * must not bake in handlers that could go stale. `annotations` marks spans of
+ * authored prose with their explanations; it carries the same settled-only
+ * gate and the same identity contract as `fileMentions`: a new resolver
+ * identity discards settled messages' cached parses, so the provider keeps one
+ * resolver while its vocabulary is unchanged.
  * @returns A GFM document with TeX math rendered through KaTeX; raw HTML,
  * relative links, and unsafe protocols are disabled, while absolute HTTP(S)
  * images render directly.
  */
-export const MarkdownText = memo(function MarkdownText({ text, streaming = false, labels, fileMentions }: {
+export const MarkdownText = memo(function MarkdownText({ text, streaming = false, labels, fileMentions, annotations }: {
   text: string
   streaming?: boolean
   labels: MarkdownLabels
   fileMentions?: MarkdownFileMentions | undefined
+  annotations?: MarkdownAnnotations | undefined
 }) {
   const streamRef = useRef<StreamingRenderer | null>(null)
   const streamLabelsRef = useRef<MarkdownLabels>(labels)
   const children = useMemo(() => {
     if (!streaming) {
       streamRef.current = null
-      return renderSettled(text, labels, fileMentions)
+      return renderSettled(text, labels, fileMentions, annotations)
     }
     if (streamRef.current === null || streamLabelsRef.current !== labels) {
       streamRef.current = new StreamingRenderer(labels)
       streamLabelsRef.current = labels
     }
     return streamRef.current.render(text)
-  }, [text, streaming, labels, fileMentions])
+  }, [text, streaming, labels, fileMentions, annotations])
   return <div className={css.markdown}>{children}</div>
 })
