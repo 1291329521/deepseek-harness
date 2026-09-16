@@ -39,6 +39,9 @@
       "path": "../../settings/settings"
     },
     {
+      "path": "../../client/ui-terminology/tsconfig.host.json"
+    },
+    {
       "path": "../../core/scope"
     },
     {

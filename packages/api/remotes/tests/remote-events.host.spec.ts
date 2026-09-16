@@ -123,6 +123,26 @@ describe('Remote event Host source', () => {
     await ctx.fiber.dispose()
   })
 
+  it('forwards terminology/changed in the global and session-scoped argument forms', async () => {
+    const { ctx, gateway, fiber } = await setup()
+    const abort = new AbortController()
+    const iterator = sourceOf(gateway)(abort.signal)[Symbol.asyncIterator]()
+    const globalChange = iterator.next()
+    emitRaw(ctx, 'terminology/changed', [])
+    await expect(globalChange).resolves.toEqual({ done: false, value: { event: 'terminology/changed', args: [] } })
+    const scopedChange = iterator.next()
+    emitRaw(ctx, 'terminology/changed', ['terminology-forward-session'])
+    await expect(scopedChange).resolves.toEqual({
+      done: false,
+      value: { event: 'terminology/changed', args: ['terminology-forward-session'] },
+    })
+    const done = iterator.next()
+    abort.abort()
+    await expect(done).resolves.toEqual({ done: true, value: undefined })
+    await fiber.dispose()
+    await ctx.fiber.dispose()
+  })
+
   it('rejects a non-JSON argument without poisoning the stream', async () => {
     const { ctx, gateway } = await setup()
     const abort = new AbortController()

@@ -170,13 +170,14 @@ async function waitUntil(assertion: () => void, timeoutMs = 5_000): Promise<void
 }
 
 describe('TerminologyService remote contract', () => {
-  it('publishes the terminology namespace and exactly the state/remember remotes', async () => {
+  it('publishes the terminology namespace and exactly the state/remember/explain remotes', async () => {
     const h = await harness()
     expect(h.service.typertRemote.serviceKey).toBe('terminology')
     expect(h.service.typertRemote.namespace).toBe('terminology')
     expect(remoteMethods(h.service)).toEqual([
       { method: 'state', invocation: { kind: 'direct' } },
       { method: 'remember', invocation: { kind: 'direct' } },
+      { method: 'explain', invocation: { kind: 'direct' } },
     ])
   })
 

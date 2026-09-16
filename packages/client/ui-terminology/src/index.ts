@@ -1,19 +1,23 @@
 /**
  * Host half: settings namespace, two-layer glossary with file watching, and
- * the typert remote the Web client reads. The explain pipeline lands beside
- * `state` and `remember` below.
+ * the typert remote the Web client reads (`state`, `explain`, `remember`).
  * @module @deepseek-ai/dsh-client-ui-terminology
  */
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import { Context, Service } from '@deepseek-ai/cordis'
+// Type-only: activates the `ctx.sessionProjections` Context declaration.
+import type {} from '@deepseek-ai/dsh-session-projection'
+// Type-only: activates the `modelSelection` key of `SessionProjectionStateMap`.
+import type {} from '@deepseek-ai/dsh-api-session-controller/types'
 import type { SettingsScope } from '@deepseek-ai/dsh-settings'
-import type {} from '@deepseek-ai/dsh-session'
+import type { Session } from '@deepseek-ai/dsh-session'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import { withFileLock, writeFileAtomic } from '@deepseek-ai/dsh-atomic-write'
 import { watch, type FSWatcher } from 'chokidar'
 import { stringify } from 'yaml'
+import { explainTerm, type ExplainRoute } from './explain.ts'
 import {
   GLOSSARY_EXPLANATION_MAX_CHARS,
   TERMINOLOGY_NAMESPACE,
@@ -26,6 +30,8 @@ import { parseProjectGlossary } from './glossary.ts'
 import type {
   GlossaryTerm,
   TerminologyErrorCode,
+  TerminologyExplainRequest,
+  TerminologyExplainResult,
   TerminologyRememberRequest,
   TerminologyRememberResult,
   TerminologyResult,
@@ -113,6 +119,10 @@ export default class TerminologyService extends TypertRemoteService {
 
   /** Register the settings namespace and adopt its owner scope. */
   protected [Service.init](): void {
+    const { explainProvider, explainModel } = this.config
+    if ((explainProvider === undefined) !== (explainModel === undefined)) {
+      throw new Error('terminology: explainProvider and explainModel must be configured together')
+    }
     this.scope = this.ctx.settings.register(TERMINOLOGY_NAMESPACE, TerminologySettingsSchema, { base: this.base })
     this.ctx.effect(() => this.scope.watch(() => { this.notifyChanged(undefined) }), 'terminology:settings-watch')
   }
@@ -206,6 +216,54 @@ export default class TerminologyService extends TypertRemoteService {
     this.projectFiles.set(projectPath, { terms: merged, error: undefined })
     this.notifyChanged(request.sessionId)
     return ok({})
+  }
+
+  /**
+   * Explain one manually selected term through the session's model route.
+   * @param request - Session, selected term, and surrounding context.
+   * @returns The plain-prose explanation, or `SESSION_NOT_FOUND` /
+   * `TERM_INVALID` / `CONTEXT_TOO_LARGE` / `NO_MODEL_ROUTE` / `LLM_FAILED` /
+   * `TIMEOUT`.
+   */
+  @Remote('explain')
+  async explain(request: TerminologyExplainRequest): Promise<TerminologyExplainResult> {
+    const session = this.ctx.sessions.get(request.sessionId)
+    if (session === undefined) {
+      return rejected('SESSION_NOT_FOUND', `session ${request.sessionId} not found`)
+    }
+    const route = this.resolveExplainRoute(session)
+    if (route === undefined) {
+      return rejected('NO_MODEL_ROUTE', 'no model route is available; configure explainProvider and explainModel together, or select a model in this session')
+    }
+    const config = this.config
+    return await explainTerm({
+      route,
+      policy: {
+        maxTokens: config.explainMaxTokens,
+        maxSentences: config.explainMaxSentences,
+        timeoutMs: config.explainTimeoutMs,
+        termMaxChars: config.explainTermMaxChars,
+        contextMaxBytes: config.explainContextMaxBytes,
+      },
+      sessionId: session.id,
+      stream: options => this.ctx.llm.stream(options),
+      append: (type, payload) => {
+        session.append(type, payload)
+      },
+    }, { term: request.term, context: request.context })
+  }
+
+  /** Explicit configured pair wins; otherwise the session's current selection. No third fallback: neither source means no route. */
+  private resolveExplainRoute(session: Session): ExplainRoute | undefined {
+    const { explainProvider, explainModel } = this.config
+    // The half pair is rejected at init, so a missing member means no explicit pair.
+    if (explainProvider === undefined || explainModel === undefined) {
+      const lastUsed = this.ctx.sessionProjections.stateOf(session, 'modelSelection')?.lastUsed
+      return lastUsed === null || lastUsed === undefined
+        ? undefined
+        : { provider: lastUsed.provider, model: lastUsed.model }
+    }
+    return { provider: explainProvider, model: explainModel }
   }
 
   /**
@@ -305,10 +363,15 @@ export default class TerminologyService extends TypertRemoteService {
    * that throws or rejects cannot veto the vocabulary change that produced it.
    */
   private notifyChanged(sessionId: SessionId | undefined): void {
-    const args = ['terminology/changed', sessionId]
+    // A global change dispatches without the argument: the Remote forwarder
+    // only admits lossless JSON arguments, and `undefined` is none. Local
+    // listeners read the missing argument as `undefined`.
+    const args: unknown[] = sessionId === undefined
+      ? ['terminology/changed']
+      : ['terminology/changed', sessionId]
     for (const listener of this.ctx.events.dispatch('emit', args) as Array<(...listenerArgs: unknown[]) => unknown>) {
       try {
-        const returned = listener(sessionId)
+        const returned = sessionId === undefined ? listener() : listener(sessionId)
         if (returned != null && typeof (returned as PromiseLike<unknown>).then === 'function') {
           void Promise.resolve(returned as PromiseLike<unknown>).then(undefined, () => {
             // Rejection containment: the write already committed.

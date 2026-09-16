@@ -56,11 +56,12 @@ Host 服务是 `ctx.terminology`（以 `terminology` 为键的 `TypertRemoteServ
 <details>
 <summary>实现细节——点击展开</summary>
 
-`state` 返回单个会话的全部渲染输入：开关、生效快捷键、按词长降序合并的两层词汇、解析出的项目文件路径，以及项目文件读取/解析出错时的错误（此时项目层被忽略，调用仍然成功）。`remember` 把一条词条写入所选层：全局层经设置 scope，项目层经 `withFileLock` 加整文档原子写。读取和 `remember` 维护按路径的缓存；chokidar 在项目文件被外部改动后重读。每次设置写入、项目文件变动和成功的 `remember` 都会扇出 `terminology/changed`，观察方失败不能否决已提交的写入。
+`state` 返回单个会话的全部渲染输入：开关、生效快捷键、按词长降序合并的两层词汇、解析出的项目文件路径，以及项目文件读取/解析出错时的错误（此时项目层被忽略，调用仍然成功）。`remember` 把一条词条写入所选层：全局层经设置 scope，项目层经 `withFileLock` 加整文档原子写。读取和 `remember` 维护按路径的缓存；chokidar 在项目文件被外部改动后重读。每次设置写入、项目文件变动和成功的 `remember` 都会扇出 `terminology/changed`，观察方失败不能否决已提交的写入。`explain` 经模型路线解释一个选中的词：配置了固定的 `explainProvider`/`explainModel` 对时用该对，否则用会话上次的模型选择，两个来源都没有就拒绝调用。每次调用先约束词与上下文的边界、把它们框成一个 JSON 对象、在派发前把 `terminology/explain-request` 追加进 Session 日志，再在单个 `explainTimeoutMs` 截止时间下消费一次 `purpose: 'terminology'` 流；只返回纯文本答案，其他任何结果——超时、截断、请求工具、空文本——都是类型化错误。
 
 | 文件 | 职责 |
 |---|---|
-| [`src/index.ts`](src/index.ts) | 服务生命周期、设置所有权、项目文件缓存与 watcher，以及 `state`/`remember` remote 方法 |
+| [`src/index.ts`](src/index.ts) | 服务生命周期、设置所有权、项目文件缓存与 watcher，以及 `state`/`remember`/`explain` remote 方法 |
+| [`src/explain.ts`](src/explain.ts) | explain 的输入框定、派发前日志、截止时间与输出规则 |
 | [`src/spec.ts`](src/spec.ts) | Host Config、设置 schema 与项目文件 schema |
 | [`src/types.ts`](src/types.ts) | Remote 载荷、封闭错误目录与声明合并的事件 |
 | [`src/glossary.ts`](src/glossary.ts) | 项目文件解析与两层合并 |
@@ -86,7 +87,19 @@ Host 服务是 `ctx.terminology`（以 `terminology` 为键的 `TypertRemoteServ
 <a id="model-experience"></a>
 ## 模型体验
 
-自动标注完全不涉及模型：命中的词来自两层词汇表，词表内容、标注结果与悬停状态都不进入模型请求或会话日志。
+### 自动标注
+
+#### 模型看到什么
+
+无：自动标注在浏览器内从两层词汇表读取命中的词，词表内容、标注结果与悬停状态都不进入模型请求或会话日志。
+
+#### Token 影响
+
+对任何请求都没有影响：自动路径不会向会话或辅助请求添加任何文本。
+
+#### KV Cache 影响
+
+无；词汇表是转写之外的渲染输入，会话内容与前缀保持不变。
 
 ### 手动解释请求
 

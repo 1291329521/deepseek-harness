@@ -839,6 +839,27 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
 
 来源：[`packages/experimental/agent-team/src/types.ts:206`](../packages/experimental/agent-team/src/types.ts)
 
+### `terminology/*`
+
+<a id="terminologyexplain-request--log-only"></a>
+
+#### `terminology/explain-request` — log-only
+
+```ts persistence-catalog
+/**
+ * Pre-dispatch record of one user-triggered terminology explanation request.
+ * Log-only: it mirrors the exact framed model input so the request is
+ * reconstructable from the Session log. First-party `Session.append` carries
+ * no `ignorable` marker: builds that generate the persistence catalog from
+ * this repository read the log through `KNOWN_SESSION_EVENT_TYPES`, while a
+ * build predating this type refuses the log per the session-log versioning
+ * mechanism until the vocabulary catches up.
+ */
+'terminology/explain-request': TerminologyExplainRequestEventData
+```
+
+来源：[`packages/client/ui-terminology/src/types.ts:104`](../packages/client/ui-terminology/src/types.ts)
+
 ### `todo/*`
 
 <a id="todowrite--log-only"></a>

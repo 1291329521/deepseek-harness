@@ -5,14 +5,18 @@
     "outDir": "lib/types",
     "tsBuildInfoFile": "lib/tsconfig.host.tsbuildinfo"
   },
-  "files": ["src/index.ts", "src/spec.ts", "src/types.ts", "src/glossary.ts"],
+  "files": ["src/index.ts", "src/explain.ts", "src/spec.ts", "src/types.ts", "src/glossary.ts"],
   "references": [
     { "path": "../../../vendor/cordis" },
     { "path": "../../../vendor/schemastery" },
+    { "path": "../../api/session-controller/tsconfig.host.json" },
     { "path": "../../core/session" },
     { "path": "../../llm/llm" },
+    { "path": "../../session/session-projection" },
     { "path": "../../settings/settings" },
     { "path": "../../typert/protocol" },
-    { "path": "../../util/atomic-write" }
+    { "path": "../../util/atomic-write" },
+    { "path": "../../util/timeout" },
+    { "path": "../../util/values" }
   ]
 }

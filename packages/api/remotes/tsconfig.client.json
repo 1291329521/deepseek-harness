@@ -24,6 +24,9 @@
       "path": "../../client/file-upload/tsconfig.client.json"
     },
     {
+      "path": "../../client/ui-terminology/tsconfig.client.json"
+    },
+    {
       "path": "../../credentials/credentials"
 
     },

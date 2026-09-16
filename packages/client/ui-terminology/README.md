@@ -56,11 +56,12 @@ The Host service is `ctx.terminology` (a `TypertRemoteService` keyed `terminolog
 <details>
 <summary>Implementation internals — click to expand</summary>
 
-`state` returns one session's full render inputs: enabled flag, effective shortcut, both vocabulary layers merged longest-term-first, the resolved project file path, and the project file's read/parse error when it has one (the project layer is then ignored and the call still succeeds). `remember` writes one entry into the chosen layer: the global layer through the settings scope, the project layer through `withFileLock` plus an atomic write of the whole document. Reads and `remember` keep a per-path cache; chokidar re-reads the project file after external edits. Every settings write, project-file move, and successful `remember` fans out `terminology/changed`, and an observer failure never vetoes the committed write.
+`state` returns one session's full render inputs: enabled flag, effective shortcut, both vocabulary layers merged longest-term-first, the resolved project file path, and the project file's read/parse error when it has one (the project layer is then ignored and the call still succeeds). `remember` writes one entry into the chosen layer: the global layer through the settings scope, the project layer through `withFileLock` plus an atomic write of the whole document. Reads and `remember` keep a per-path cache; chokidar re-reads the project file after external edits. Every settings write, project-file move, and successful `remember` fans out `terminology/changed`, and an observer failure never vetoes the committed write. `explain` explains one selected word through a model route: the pinned `explainProvider`/`explainModel` pair when configured, otherwise the session's last model selection, with neither source rejecting the call. Each call bounds the term and context, frames them as one JSON object, appends `terminology/explain-request` to the Session log before dispatch, and consumes one `purpose: 'terminology'` stream under a single `explainTimeoutMs` deadline; only a plain-text answer is returned, and any other outcome — timeout, truncation, tool request, empty text — is a typed failure.
 
 | File | Role |
 |---|---|
-| [`src/index.ts`](src/index.ts) | Service lifecycle, settings ownership, project-file cache and watcher, and the `state`/`remember` remotes |
+| [`src/index.ts`](src/index.ts) | Service lifecycle, settings ownership, project-file cache and watcher, and the `state`/`remember`/`explain` remotes |
+| [`src/explain.ts`](src/explain.ts) | Framed explain input, pre-dispatch logging, deadline, and output rules |
 | [`src/spec.ts`](src/spec.ts) | Host Config, settings schema, and the project file schema |
 | [`src/types.ts`](src/types.ts) | Remote payloads, the closed failure catalog, and the declaration-merged events |
 | [`src/glossary.ts`](src/glossary.ts) | Project file parsing and the two-layer merge |
@@ -86,7 +87,19 @@ The Host service is `ctx.terminology` (a `TypertRemoteService` keyed `terminolog
 <a id="model-experience"></a>
 ## Model Experience
 
-Automatic annotation involves no model at all: matched words come from the two vocabulary layers, and glossary content, annotation results, and hover state never enter a model request or the Session log.
+### Automatic annotation
+
+#### What the model sees
+
+Nothing: automatic annotation reads matched words from the two vocabulary layers in the browser, and glossary content, annotation results, and hover state never enter a model request or the Session log.
+
+#### Token effect
+
+None on any request; the automatic path adds no text to the conversation or to an auxiliary request.
+
+#### KV Cache effect
+
+None; the vocabulary layers are render input beside the transcript, so conversation content and prefixes stay unchanged.
 
 ### Manual explain request
 

@@ -95,8 +95,11 @@ declare module '@deepseek-ai/dsh-session/types' {
     /**
      * Pre-dispatch record of one user-triggered terminology explanation request.
      * Log-only: it mirrors the exact framed model input so the request is
-     * reconstructable from the Session log, and is appended with the envelope's
-     * `ignorable: true` so builds without this type still read the log.
+     * reconstructable from the Session log. First-party `Session.append` carries
+     * no `ignorable` marker: builds that generate the persistence catalog from
+     * this repository read the log through `KNOWN_SESSION_EVENT_TYPES`, while a
+     * build predating this type refuses the log per the session-log versioning
+     * mechanism until the vocabulary catches up.
      */
     'terminology/explain-request': TerminologyExplainRequestEventData
   }
@@ -106,9 +109,10 @@ declare module '@deepseek-ai/cordis' {
   interface Events {
     /**
      * The rendered vocabulary changed: a settings write, an external edit of
-     * the project glossary file, or a successful remember. The payload carries
-     * the affected session for session-scoped changes and undefined for global
-     * ones. Observer failures cannot veto the write that produced it.
+     * the project glossary file, or a successful remember. Observer failures
+     * cannot veto the write that produced it. A global change dispatches with
+     * no argument, so forwarded listeners see an empty argument list while
+     * local listeners read the missing argument as `undefined`.
      * @mode emit
      * @param sessionId - session whose project vocabulary changed, or
      * `undefined` when the global layer or an unattributed change moved.
