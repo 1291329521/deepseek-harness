@@ -61,6 +61,7 @@ export type TerminologyErrorCode =
   | 'CONTEXT_TOO_LARGE'
   | 'NO_MODEL_ROUTE'
   | 'LLM_FAILED'
+  | 'LLM_TRUNCATED'
   | 'TIMEOUT'
   | 'GLOSSARY_WRITE_FAILED'
   | 'NO_WORKSPACE'

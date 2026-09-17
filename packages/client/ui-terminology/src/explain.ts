@@ -105,7 +105,9 @@ function failureMessage(error: unknown): string {
 /**
  * Translate one non-`stop` terminal finish reason into a failure message.
  * Any finish other than `stop` means the explanation is not trustworthy:
- * truncation, a tool request, or a provider-side failure.
+ * truncation, a tool request, or a provider-side failure. Truncation carries
+ * its own code at the call site, because a deployment raising `explainMaxTokens`
+ * is the fix.
  */
 function finishFailure(finish: FinishReason): string {
   if (finish.kind === 'error' || finish.kind === 'aborted') {
@@ -121,8 +123,8 @@ function finishFailure(finish: FinishReason): string {
  * @param deps - route, policy, stream collaborator, and log sink.
  * @param input - selected term and its surrounding context.
  * @returns the explanation text, or `TERM_INVALID` / `CONTEXT_TOO_LARGE` /
- * `LLM_FAILED` / `TIMEOUT`; the appended record makes every dispatched request
- * reconstructable from the Session log.
+ * `LLM_FAILED` / `LLM_TRUNCATED` / `TIMEOUT`; the appended record makes every
+ * dispatched request reconstructable from the Session log.
  */
 export async function explainTerm(deps: ExplainDeps, input: ExplainInput): Promise<TerminologyExplainResult> {
   if (input.term.length === 0 || input.term.length > deps.policy.termMaxChars) {
@@ -169,6 +171,11 @@ export async function explainTerm(deps: ExplainDeps, input: ExplainInput): Promi
   }
   if (callDeadline.signal.aborted) return rejected('TIMEOUT', 'the explanation request timed out')
   const finish = assembler.finish
+  // A reachable output cap is the one finish a reader can act on: a
+  // thinking-capable model spends the same budget on reasoning it never shows.
+  if (finish.kind === 'max-tokens') {
+    return rejected('LLM_TRUNCATED', 'the explanation reached the output-token cap before it completed')
+  }
   if (finish.kind !== 'stop') return rejected('LLM_FAILED', finishFailure(finish))
   const blocks = assembler.blocks()
   if (blocks.some(block => block.type === 'tool-call')) {

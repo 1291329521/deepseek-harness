@@ -106,7 +106,7 @@ export default class TerminologyService extends TypertRemoteService {
     projectGlossaryPath: z.string().default(DEFAULT_PROJECT_GLOSSARY_PATH),
     explainProvider: z.string(),
     explainModel: z.string(),
-    explainMaxTokens: z.number().min(1).default(256),
+    explainMaxTokens: z.number().min(1).default(2048),
     explainMaxSentences: z.number().min(1).default(3),
     explainTimeoutMs: z.number().min(1).default(30_000),
     explainTermMaxChars: z.number().min(1).default(64),

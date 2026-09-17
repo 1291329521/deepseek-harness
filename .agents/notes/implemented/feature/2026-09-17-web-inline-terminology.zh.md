@@ -24,7 +24,7 @@ Web 助手正文中的术语词条应当变成可点击的词：悬停、键盘�
 
 ### 解释管线
 
-手动取词把 `{ term, context }` 框成一个 JSON 对象嵌入固定指令，在派发前以与 `session/title-llm-request` 相同的二参 log-only 形态追加 `terminology/explain-request` 到会话日志，然后消费一条 `purpose: 'terminology'` 流，整体受单一 `explainTimeoutMs` 期限约束。路由优先用配置的 `explainProvider`/`explainModel` 对——只给一半在装载时抛错——否则用该会话上次选择的模型，两者皆无返回 `NO_MODEL_ROUTE`；不存在静默默认。只有纯文本答案算成功：超时、截断、工具请求、空文本都是类型化失败，由浮层用人话陈述。
+手动取词把 `{ term, context }` 框成一个 JSON 对象嵌入固定指令，在派发前以与 `session/title-llm-request` 相同的二参 log-only 形态追加 `terminology/explain-request` 到会话日志，然后消费一条 `purpose: 'terminology'` 流，整体受单一 `explainTimeoutMs` 期限约束。路由优先用配置的 `explainProvider`/`explainModel` 对——只给一半在装载时抛错——否则用该会话上次选择的模型，两者皆无返回 `NO_MODEL_ROUTE`；不存在静默默认。只有纯文本答案算成功：超时、工具请求、空文本与提供方失败都是类型化失败，由浮层用人话陈述，触到输出上限则单独报 `LLM_TRUNCATED`。默认 `explainMaxTokens`（2048）是按「具备推理能力的路由不会展示的推理 token」来定的：在本地 `openai-completions` 路由上实测，一次解释请求会把 256 的全部预算花在推理上、正文为空，而预算腾出空间后同一请求 289 token 即自然结束。
 
 ### 交互契约
 

@@ -178,7 +178,7 @@ describe('explain pipeline framing and durable record', () => {
 })
 
 describe('explain pipeline model output rules', () => {
-  it('folds a truncated finish into LLM_FAILED', async () => {
+  it('names a truncated finish as its own code', async () => {
     const h = pipelineHarness(scripted([
       { type: 'block-start', index: 0, blockType: 'text' },
       { type: 'text-delta', index: 0, text: 'half an answer' },
@@ -186,7 +186,7 @@ describe('explain pipeline model output rules', () => {
     ]))
     await expect(explainTerm(h.deps, { term: 't', context: 'c' })).resolves.toMatchObject({
       ok: false,
-      error: { code: 'LLM_FAILED', message: 'the explanation model stopped before completing the explanation' },
+      error: { code: 'LLM_TRUNCATED', message: 'the explanation reached the output-token cap before it completed' },
     })
   })
 

@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write docs/superpowers/plans/2026-09-16-web-inline-terminology.md
-2026-09-16-web-inline-terminology.md: 4d807dd4c0a1544c2ff5233b996e164097ae1510
-2026-09-16-web-inline-terminology.zh.md: a38a28d3e86f9dbd13300aad7ec22ffdd702f962
+2026-09-16-web-inline-terminology.md: b72113074b3aae1012491f71abdf8bb1bc860afe
+2026-09-16-web-inline-terminology.zh.md: 4e91b4344ebe35b81fb1fa925fdcb4b33679708d

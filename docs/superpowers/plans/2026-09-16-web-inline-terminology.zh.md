@@ -1017,7 +1017,7 @@ export const TerminologyConfigSchema: z<TerminologyConfig> = z.object({
   projectGlossaryPath: z.string().default(DEFAULT_PROJECT_GLOSSARY_PATH),
   explainProvider: z.string().optional(),
   explainModel: z.string().optional(),
-  explainMaxTokens: z.number().default(256),
+  explainMaxTokens: z.number().default(2048),
   explainMaxSentences: z.number().default(3),
   explainTimeoutMs: z.number().default(30_000),
   explainTermMaxChars: z.number().default(64),

@@ -42,7 +42,7 @@ Host 服务是 `ctx.terminology`（以 `terminology` 为键的 `TypertRemoteServ
 | `projectGlossaryPath` | `".dsh/terminology.yml"` | 项目术语表文件，相对工作区；绝对路径或逃逸路径不产生项目层。 |
 | `explainProvider` | 未设置 | 手动解释的固定提供方；需与 `explainModel` 同时给出。 |
 | `explainModel` | 未设置 | 手动解释的固定模型；需与 `explainProvider` 同时给出。 |
-| `explainMaxTokens` | `256` | 单次解释请求的生成预算。 |
+| `explainMaxTokens` | `2048` | 单次解释请求的生成预算；具备推理能力的模型会把其中一部分花在不会展示的推理上。 |
 | `explainMaxSentences` | `3` | 单条解释的句数上限。 |
 | `explainTimeoutMs` | `30000` | 单次解释请求的墙钟预算。 |
 | `explainTermMaxChars` | `64` | 解释或存词请求允许携带的最长词。 |
@@ -56,7 +56,7 @@ Host 服务是 `ctx.terminology`（以 `terminology` 为键的 `TypertRemoteServ
 <details>
 <summary>实现细节——点击展开</summary>
 
-`state` 返回单个会话的全部渲染输入：开关、生效快捷键、按词长降序合并的两层词汇、解析出的项目文件路径，以及项目文件读取/解析出错时的错误（此时项目层被忽略，调用仍然成功）。`remember` 把一条词条写入所选层：全局层经设置 scope，项目层经 `withFileLock` 加整文档原子写。读取和 `remember` 维护按路径的缓存；chokidar 在目录存在后、项目文件被外部改动时重读，读取与监听都不创建工作区结构。每次设置写入、项目文件变动和成功的 `remember` 都会扇出 `terminology/changed`，观察方失败不能否决已提交的写入。`explain` 经模型路线解释一个选中的词：配置了固定的 `explainProvider`/`explainModel` 对时用该对，否则用会话上次的模型选择，两个来源都没有就拒绝调用。每次调用先约束词与上下文的边界、把它们框成一个 JSON 对象、在派发前把 `terminology/explain-request` 追加进 Session 日志，再在单个 `explainTimeoutMs` 截止时间下消费一次 `purpose: 'terminology'` 流；只返回纯文本答案，其他任何结果——超时、截断、请求工具、空文本——都是类型化错误。
+`state` 返回单个会话的全部渲染输入：开关、生效快捷键、按词长降序合并的两层词汇、解析出的项目文件路径，以及项目文件读取/解析出错时的错误（此时项目层被忽略，调用仍然成功）。`remember` 把一条词条写入所选层：全局层经设置 scope，项目层经 `withFileLock` 加整文档原子写。读取和 `remember` 维护按路径的缓存；chokidar 在目录存在后、项目文件被外部改动时重读，读取与监听都不创建工作区结构。每次设置写入、项目文件变动和成功的 `remember` 都会扇出 `terminology/changed`，观察方失败不能否决已提交的写入。`explain` 经模型路线解释一个选中的词：配置了固定的 `explainProvider`/`explainModel` 对时用该对，否则用会话上次的模型选择，两个来源都没有就拒绝调用。每次调用先约束词与上下文的边界、把它们框成一个 JSON 对象、在派发前把 `terminology/explain-request` 追加进 Session 日志，再在单个 `explainTimeoutMs` 截止时间下消费一次 `purpose: 'terminology'` 流；只返回纯文本答案，其他任何结果都是类型化错误：触到输出上限为 `LLM_TRUNCATED`，超时、请求工具、空文本与提供方失败为 `LLM_FAILED`。
 
 | 文件 | 职责 |
 |---|---|
