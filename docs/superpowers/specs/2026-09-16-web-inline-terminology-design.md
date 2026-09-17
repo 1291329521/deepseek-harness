@@ -133,7 +133,7 @@ export type MarkdownSegment =
 
 `MarkdownRenderContext` gains a field:
 
-```ts
+```ts ignore-check
 /** Prose annotations; absent when no vocabulary is mounted or while streaming. */
 readonly annotations: MarkdownAnnotations | undefined
 ```

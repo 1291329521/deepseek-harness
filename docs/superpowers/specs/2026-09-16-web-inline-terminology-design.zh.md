@@ -133,7 +133,7 @@ export type MarkdownSegment =
 
 `MarkdownRenderContext` 增加字段：
 
-```ts
+```ts ignore-check
 /** Prose annotations; absent when no vocabulary is mounted or while streaming. */
 readonly annotations: MarkdownAnnotations | undefined
 ```

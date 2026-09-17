@@ -56,16 +56,25 @@ Host 服务是 `ctx.terminology`（以 `terminology` 为键的 `TypertRemoteServ
 <details>
 <summary>实现细节——点击展开</summary>
 
-`state` 返回单个会话的全部渲染输入：开关、生效快捷键、按词长降序合并的两层词汇、解析出的项目文件路径，以及项目文件读取/解析出错时的错误（此时项目层被忽略，调用仍然成功）。`remember` 把一条词条写入所选层：全局层经设置 scope，项目层经 `withFileLock` 加整文档原子写。读取和 `remember` 维护按路径的缓存；chokidar 在项目文件被外部改动后重读。每次设置写入、项目文件变动和成功的 `remember` 都会扇出 `terminology/changed`，观察方失败不能否决已提交的写入。`explain` 经模型路线解释一个选中的词：配置了固定的 `explainProvider`/`explainModel` 对时用该对，否则用会话上次的模型选择，两个来源都没有就拒绝调用。每次调用先约束词与上下文的边界、把它们框成一个 JSON 对象、在派发前把 `terminology/explain-request` 追加进 Session 日志，再在单个 `explainTimeoutMs` 截止时间下消费一次 `purpose: 'terminology'` 流；只返回纯文本答案，其他任何结果——超时、截断、请求工具、空文本——都是类型化错误。
+`state` 返回单个会话的全部渲染输入：开关、生效快捷键、按词长降序合并的两层词汇、解析出的项目文件路径，以及项目文件读取/解析出错时的错误（此时项目层被忽略，调用仍然成功）。`remember` 把一条词条写入所选层：全局层经设置 scope，项目层经 `withFileLock` 加整文档原子写。读取和 `remember` 维护按路径的缓存；chokidar 在目录存在后、项目文件被外部改动时重读，读取与监听都不创建工作区结构。每次设置写入、项目文件变动和成功的 `remember` 都会扇出 `terminology/changed`，观察方失败不能否决已提交的写入。`explain` 经模型路线解释一个选中的词：配置了固定的 `explainProvider`/`explainModel` 对时用该对，否则用会话上次的模型选择，两个来源都没有就拒绝调用。每次调用先约束词与上下文的边界、把它们框成一个 JSON 对象、在派发前把 `terminology/explain-request` 追加进 Session 日志，再在单个 `explainTimeoutMs` 截止时间下消费一次 `purpose: 'terminology'` 流；只返回纯文本答案，其他任何结果——超时、截断、请求工具、空文本——都是类型化错误。
 
 | 文件 | 职责 |
 |---|---|
 | [`src/index.ts`](src/index.ts) | 服务生命周期、设置所有权、项目文件缓存与 watcher，以及 `state`/`remember`/`explain` remote 方法 |
 | [`src/explain.ts`](src/explain.ts) | explain 的输入框定、派发前日志、截止时间与输出规则 |
+| [`src/namespace.ts`](src/namespace.ts) | 两个半边共同衔接的 `terminology` 键，不携带 schema 运行时 |
 | [`src/spec.ts`](src/spec.ts) | Host Config、设置 schema 与项目文件 schema |
 | [`src/types.ts`](src/types.ts) | Remote 载荷、封闭错误目录与声明合并的事件 |
 | [`src/glossary.ts`](src/glossary.ts) | 项目文件解析与两层合并 |
-| [`src/client/index.ts`](src/client/index.ts) | 浏览器半边入口 |
+| [`src/client/index.ts`](src/client/index.ts) | 浏览器半边装配：词表、手动取词接管与两个 slot 注册 |
+| [`src/client/resolver.ts`](src/client/resolver.ts) | 长词优先、大小写敏感、不重叠的标注扫描器 |
+| [`src/client/selection.ts`](src/client/selection.ts) | 接管可以认领哪个活动选区，以及锚在哪里 |
+| [`src/client/shortcut.ts`](src/client/shortcut.ts) | 和弦文本解析与精确匹配的按键比较 |
+| [`src/client/overlay-policy.ts`](src/client/overlay-policy.ts) | 手动取词状态机：菜单、加载、展示、失败、保存 |
+| [`src/client/card-policy.ts`](src/client/card-policy.ts) | 设置卡片快照与经 owner scope 的整数组词条写入 |
+| [`src/client/TerminologyOverlay.tsx`](src/client/TerminologyOverlay.tsx) | 接管菜单与解释对话框 |
+| [`src/client/TerminologyCard.tsx`](src/client/TerminologyCard.tsx) | 设置页的术语卡片 |
+| [`src/client/locales.ts`](src/client/locales.ts) | `ui-terminology` 词典（zh 与 en） |
 
 </details>
 
@@ -119,13 +128,16 @@ Host 服务是 `ctx.terminology`（以 `terminology` 为键的 `TypertRemoteServ
 
 <a id="known-limitations-and-deferred-work"></a>
 
-以下限制针对渲染出的标注行为。
+以下限制针对渲染出的标注行为与项目文件监听。
 
 - **匹配在单个文本节点内进行** —— 跨 Markdown 节点拆开的词不会被标注。
 - **强调语法会劈开词** —— 源码里写成 `Trans**former**` 的词不会命中的词表词条。
 - **中文没有词边界** —— 词表含 `模型` 时，`大模型` 内的 `模型` 也会被标注；长词优先排序与用户自维护词表是缓解手段。
-- **正文解释在下一次自然重渲染时刷新** —— 词汇变化要等节点重渲染才作用于已渲染正文，不做强制重绘。
+- **正文解释经标注 hook 刷新** —— 词汇变化经由标注所在的同一通道重绘已定稿正文；重绘是代价，每次词面真实变动至多一次是上限。
+- **每个浏览器解析一份词表** —— 解析出的词表跟随浏览器拉取时所对的会话；并排打开的多个会话共用这一份词表，直到下一次拉取解析出别的。
 - **不提供下载或导出** —— 本功能没有导出；将来若新增，其格式选择必须是设置界面里与卡片同级的显式控件，绝不能放进 tooltip。
+- **外部删除的项目术语表保留最后一次读取** —— watcher 只在 `add` 和 `change` 时重读，缓存的词会生效到下一次写入或重启刷新它为止。
+- **项目文件监听只在目录存在后武装** —— 在从未有过 `.dsh/` 的工作区里外部创建的术语表，要经重启或一次项目层 `remember` 才能进入词表，因为读取从不创建目录，而缺失的目录没有可武装的 watcher。
 
 <a id="dev-note"></a>
 ### 开发备注

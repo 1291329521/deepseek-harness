@@ -49,7 +49,7 @@ PR 3 — `ui-terminology` Host 半边：
 - Create `packages/client/ui-terminology/{package.json,tsconfig.json,tsconfig.host.json,tsconfig.client.json,tsdown.config.ts,README.md,README.zh.md}`.
 - Create `packages/client/ui-terminology/src/{spec.ts,types.ts,index.ts,glossary.ts}`.
 - Modify registration surfaces: `tsconfig.client.json`, `packages/bundle/web-app/cordis.patch.yml`, `packages/bundle/web-app/package.json`.
-- Create `packages/client/ui-terminology/tests/{glossary.spec.ts,terminology-remote.spec.ts,loader-composition.spec.ts}`.
+- Create `packages/client/ui-terminology/tests/{glossary.host.spec.ts,terminology-remote.host.spec.ts,annotations-composition.host.spec.ts}`.
 
 PR 4 — LLM explain 与持久事件：
 
@@ -57,7 +57,7 @@ PR 4 — LLM explain 与持久事件：
 - Modify `packages/api/remotes/src/client/index.ts` + `packages/api/remotes/package.json` — remote assembly.
 - Modify `packages/api/remotes/src/remote-events.ts` — forwarded-event allowlist row.
 - Modify `packages/client/ui-terminology/src/{index.ts,spec.ts,types.ts}` — `explain`, session event.
-- Create `packages/client/ui-terminology/tests/explain.spec.ts`.
+- Create `packages/client/ui-terminology/tests/explain.host.spec.ts`.
 
 PR 5 — 浏览器半边：
 
@@ -66,7 +66,7 @@ PR 5 — 浏览器半边：
 
 PR 6 — 组装验证：
 
-- Create `packages/client/ui-terminology/tests/annotations-composition.spec.ts`, `apps/web/tests/terminology-inline.e2e.ts` (+ overlay yml + `expected/` goldens).
+- Create `packages/client/ui-terminology/tests/annotations-composition.host.spec.ts`, `apps/web/tests/terminology-inline.e2e.ts` (+ overlay yml + `expected/` goldens).
 - Update TypeScript and Python SDK expected outputs for the new `SessionEventMap` member.
 
 PR 7 — 文档：README 终审、子系统文档补记、双语 Agent Note。
@@ -177,7 +177,7 @@ export type MarkdownSegment =
 
 `MarkdownRenderContext` 在 `fileMentions` 字段旁加：
 
-```ts
+```ts ignore-check
   /** Prose annotations; absent wherever no vocabulary is mounted or while streaming. */
   readonly annotations: MarkdownAnnotations | undefined
 ```
@@ -552,7 +552,7 @@ declare module '@deepseek-ai/cordis' {
 
 在 `:121` 的 `fileMentions:` 行后加：
 
-```ts
+```ts ignore-check
           annotations: () => ctx.get('chatAnnotations')?.annotations(),
 ```
 
@@ -625,7 +625,7 @@ git commit -m "feat(ui-chat): forward the optional chatAnnotations service to as
 **文件：**
 - 创建：`packages/client/ui-terminology/` 全部骨架 + `src/spec.ts`、`src/types.ts`、`src/glossary.ts`、`src/index.ts` + `README.md`/`README.zh.md`
 - 修改：`tsconfig.client.json`、`packages/bundle/web-app/cordis.patch.yml`、`packages/bundle/web-app/package.json`
-- 测试：`tests/glossary.spec.ts`、`tests/terminology-remote.spec.ts`、`tests/loader-composition.spec.ts`
+- 测试：`tests/glossary.host.spec.ts`、`tests/terminology-remote.host.spec.ts`、`tests/annotations-composition.host.spec.ts`
 
 - [ ] **步骤 1：package.json**
 
@@ -786,7 +786,7 @@ export default clientBundle('@deepseek-ai/dsh-client-ui-terminology', ['lib/type
 
 - [ ] **步骤 4：编写失败的词表合并测试**
 
-创建 `packages/client/ui-terminology/tests/glossary.spec.ts`（纯 node 环境）：
+创建 `packages/client/ui-terminology/tests/glossary.host.spec.ts`（纯 node 环境）：
 
 ```ts
 import { describe, expect, it } from 'vitest'
@@ -830,7 +830,7 @@ describe('parseProjectGlossary', () => {
 })
 ```
 
-运行 `npx vitest run packages/client/ui-terminology/tests/glossary.spec.ts` → FAIL（模块不存在）。
+运行 `npx vitest run packages/client/ui-terminology/tests/glossary.host.spec.ts` → FAIL（模块不存在）。
 
 - [ ] **步骤 5：实现 `src/types.ts`（纯类型）与 `src/spec.ts`（运行时 schema）**
 
@@ -1299,11 +1299,11 @@ export { mergeGlossary }
 
 - [ ] **步骤 8：跑词表测试转绿 + remote 行为测试**
 
-运行：`npx vitest run packages/client/ui-terminology/tests/glossary.spec.ts` → PASS。
+运行：`npx vitest run packages/client/ui-terminology/tests/glossary.host.spec.ts` → PASS。
 
-创建 `packages/client/ui-terminology/tests/terminology-remote.spec.ts`：用 `Context` + 手工 stub `settings`（返回一个 scripted owner scope）与 `sessions`（`{ get: () => ({ header: { cwd } }) }` 形状）构造服务实例（remote 方法直接 `new TerminologyService(ctx)` 或按 Loader 注入的等价构造），用 `mkdtemp` 真实文件断言：`state` 合并两层与 `projectError`；`remember` global 层写 `scope.update`；`remember` project 层写出 YAML 且重复 term 覆盖；外部改动（直接 `writeFile`）后 watcher 触发 `terminology/changed`（await 一个 `waitFor` 轮询 `notifyChanged` 计数，chokidar 在 CI 上的去抖窗口按 `awaitWriteFinish` 上限放宽）。断言 `remoteMethods(service)` 暴露 `state/remember`（import 自 `@deepseek-ai/dsh-typert-protocol`，同 message-feedback spec）。
+创建 `packages/client/ui-terminology/tests/terminology-remote.host.spec.ts`：用 `Context` + 手工 stub `settings`（返回一个 scripted owner scope）与 `sessions`（`{ get: () => ({ header: { cwd } }) }` 形状）构造服务实例（remote 方法直接 `new TerminologyService(ctx)` 或按 Loader 注入的等价构造），用 `mkdtemp` 真实文件断言：`state` 合并两层与 `projectError`；`remember` global 层写 `scope.update`；`remember` project 层写出 YAML 且重复 term 覆盖；外部改动（直接 `writeFile`）后 watcher 触发 `terminology/changed`（await 一个 `waitFor` 轮询 `notifyChanged` 计数，chokidar 在 CI 上的去抖窗口按 `awaitWriteFinish` 上限放宽）。断言 `remoteMethods(service)` 暴露 `state/remember`（import 自 `@deepseek-ai/dsh-typert-protocol`，同 message-feedback spec）。
 
-运行：`npx vitest run packages/client/ui-terminology/tests/terminology-remote.spec.ts` → PASS。
+运行：`npx vitest run packages/client/ui-terminology/tests/terminology-remote.host.spec.ts` → PASS。
 
 - [ ] **步骤 9：README 双语对（包规则先决条件）**
 
@@ -1326,7 +1326,7 @@ git commit -m "feat(ui-terminology): add the package and its Host glossary/setti
 - 修改：`packages/llm/llm/src/types.ts:442`、`packages/llm/deepseek-llm-api-extensions/src/types.ts:25`
 - 修改：`packages/client/ui-terminology/src/{types.ts,spec.ts,index.ts}`
 - 修改：`packages/api/remotes/src/client/index.ts`、`packages/api/remotes/package.json`、`packages/api/remotes/src/remote-events.ts`
-- 测试：`packages/client/ui-terminology/tests/explain.spec.ts`
+- 测试：`packages/client/ui-terminology/tests/explain.host.spec.ts`
 
 - [ ] **步骤 1：扩展 `purpose` 封闭联合**
 
@@ -1336,9 +1336,9 @@ git commit -m "feat(ui-terminology): add the package and its Host glossary/setti
 
 - [ ] **步骤 2：编写失败的 explain 管线测试**
 
-创建 `packages/client/ui-terminology/tests/explain.spec.ts`。stub `ctx.llm.stream` 为可注入的 async 迭代器（吐 text 块 / tool-call 块 / 抛错），stub `sessionProjections.stateOf` 返回 `{ lastUsed: { provider, model } }` 或 undefined，用真实 `Session`（memory persistence，参照 message-feedback `tests/helpers.ts` 的 append fixture）断言事件：
+创建 `packages/client/ui-terminology/tests/explain.host.spec.ts`。stub `ctx.llm.stream` 为可注入的 async 迭代器（吐 text 块 / tool-call 块 / 抛错），stub `sessionProjections.stateOf` 返回 `{ lastUsed: { provider, model } }` 或 undefined，用真实 `Session`（memory persistence，参照 message-feedback `tests/helpers.ts` 的 append fixture）断言事件：
 
-```ts
+```ts ignore-check
 import { describe, expect, it, vi } from 'vitest'
 import { explainTerm } from '../src/explain.ts'
 import type { ExplainDeps, ExplainInput } from '../src/explain.ts'
@@ -1521,7 +1521,7 @@ export async function explainTerm(deps: ExplainDeps, input: ExplainInput): Promi
 
 类内接入（`src/index.ts`）：`static inject` 已含 `llm`、`sessionProjections`；加方法：
 
-```ts
+```ts ignore-check
   /**
    * Explain one manually selected term through the session's model route.
    * @param request - Session, term, and surrounding context.
@@ -1730,7 +1730,7 @@ export function createTerminologyResolver(
 
 - [ ] **步骤 7：`src/client/index.ts` 装配**
 
-```ts
+```ts ignore-check
 /** Browser half: annotation provider, glossary sync, manual lookup, settings card. */
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
@@ -1821,20 +1821,20 @@ git commit -m "feat(ui-terminology): add the browser annotation provider, manual
 ### 任务 6：组装验证（REAL-composition + 触屏 e2e + 快照）
 
 **文件：**
-- 创建：`packages/client/ui-terminology/tests/annotations-composition.spec.ts`
+- 创建：`packages/client/ui-terminology/tests/annotations-composition.host.spec.ts`
 - 创建：`apps/web/tests/terminology-inline.e2e.ts`、`apps/web/tests/terminology-inline.overlay.yml`、`apps/web/tests/expected/terminology-inline/`
 - 更新：TypeScript/Python SDK 期望输出（若任务 4 步骤 5 未竟）。
 
 - [ ] **步骤 1：REAL-composition 测试（仓库强制，不许手搭 `ctx.plugin`）**
 
-创建 `tests/annotations-composition.spec.ts`，结构逐段照抄 `packages/feedback/message-feedback/tests/loader-composition.spec.ts`（Loader + `cordis:include` + modules map；把 `terminology` 行、`settings`（内存 provider 或 file provider + tmpdir）、stub `llm` provider 写进 test-only cordis.yml 字符串），断言经服务面而非构造器：
+创建 `tests/annotations-composition.host.spec.ts`，结构逐段照抄 `packages/feedback/message-feedback/tests/loader-composition.spec.ts`（Loader + `cordis:include` + modules map；把 `terminology` 行、`settings`（内存 provider 或 file provider + tmpdir）、stub `llm` provider 写进 test-only cordis.yml 字符串），断言经服务面而非构造器：
 
 - `state`：tmpdir 会话 workspace 下写 `.dsh/terminology.yml`，settings 文档写全局层，断言返回两层与合并路径、`projectError` 非法时为字符串；
 - `explain`：stub llm 固定吐文本，断言返回文本 + **会话日志里存在 `terminology/explain-request` 事件**（`session.snapshotEvents()`），其 payload 的 `system`/`messages` 含 term，事件类型经 `gen-persistence-catalog` 进入目录（断言目录含该类型）；
 - `remember` → 发出 `terminology/changed`（监听后 await）。
 - HMR 规矩：dispose fiber 后 remote 方法不可再达、watcher 关闭（对 tmpdir 文件再改动不再触发事件）。
 
-运行：`npx vitest run packages/client/ui-terminology/tests/annotations-composition.spec.ts` → PASS。
+运行：`npx vitest run packages/client/ui-terminology/tests/annotations-composition.host.spec.ts` → PASS。
 
 - [ ] **步骤 2：浏览器 e2e（触屏为主证据）**
 
@@ -1892,9 +1892,9 @@ git commit -m "test(ui-terminology): cover the assembled feature through the loa
 - [ ] **步骤 4：记录配对 + 全量文档门 + commit**
 
 ```bash
-pnpm run verify-translation-pairing --write packages/client/ui-terminology/README docs/subsystems/conversation .agents/notes/implemented/feature/2026-09-16-web-inline-terminology
+pnpm run verify-translation-pairing --write packages/client/ui-terminology/README.md docs/subsystems/conversation .agents/notes/implemented/feature/2026-09-16-web-inline-terminology
 pnpm run doc-sync
-git add packages/client/ui-terminology/README* docs/subsystems .agents/notes
+git add packages/client/ui-terminology/README.md packages/client/ui-terminology/README.zh.md docs/subsystems .agents/notes
 git commit -m "docs(ui-terminology): document the terminology feature and record its decisions"
 ```
 
