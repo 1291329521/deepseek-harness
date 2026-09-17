@@ -159,6 +159,17 @@ describe('web e2e: inline terminology annotations (touch)', () => {
     // The explanation is plain text: no buttons hide inside the tooltip.
     expect(await tooltip.getByRole('button').count()).toBe(0)
 
+    // The bubble must size to its content. It is an absolutely positioned child
+    // of an inline box, so an automatic width shrink-wraps against the trigger's
+    // own width instead of the viewport; a sentence then renders one word per
+    // line in a column as tall as the answer. Count real line boxes.
+    const tipLines = await tooltip.evaluate((element) => {
+      const range = document.createRange()
+      range.selectNodeContents(element)
+      return range.getClientRects().length
+    })
+    expect(tipLines).toBeLessThanOrEqual(3)
+
     // Click mode: pointer travel away from the trigger leaves it open.
     const box = await projectButton.boundingBox()
     if (box === null) throw new Error('annotated term has no bounding box')

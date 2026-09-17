@@ -36,6 +36,10 @@
   z-index: 100;
   display: block;
   box-sizing: border-box;
+  /* The containing block is the inline trigger, so an automatic width would
+   * shrink-wrap the card to the term and wrap a sentence one word per line.
+   * `max-content` sizes it to the explanation; `max-width` caps a long one. */
+  width: max-content;
   max-width: 280px;
   padding: 8px 12px;
   border-radius: 8px;
