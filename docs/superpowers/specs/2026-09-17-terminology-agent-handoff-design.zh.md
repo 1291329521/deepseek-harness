@@ -4,7 +4,7 @@
 
 - 日期：2026-09-17
 - 状态：等待用户最终签字
-- 范围：当一段正文不足以确定某个术语时，手动查询面板该怎么做，以及会话 Agent 如何接手探索。不新增模型工具、不改会话协议、不做宿主侧仓库检索。
+- 范围：当一段正文不足以确定某个术语时，手动查询面板如何逐级升级——先用更宽的上下文重试，再交接给会话 Agent。不新增模型工具、不改会话协议、不做宿主侧仓库检索。
 - 前置阅读：[2026-09-16-web-inline-terminology-design.zh.md](2026-09-16-web-inline-terminology-design.zh.md)、[packages/client/ui-terminology/README.zh.md](../../../packages/client/ui-terminology/README.zh.md)、[docs/subsystems/slots.zh.md](../../subsystems/slots.zh.md)
 
 ## 1. 背景与目标
@@ -15,13 +15,13 @@ explain 侧信道调用只能看到一段正文：选区所在的那个段落。
 
 ### 1.2 一句话定位
 
-**当正文无法确定某个术语时，面板直接说明这一点而不是猜测，并提供把问题交给会话 Agent 的入口：Agent 先用它已经持有的上下文解释，只有在该上下文不够时才去读仓库；结论随后可以折进项目术语表。**
+**一次查询沿三级有价阶梯升级，并停在能回答的最便宜那一级：段落，然后是选区所在的那条完整回答，最后是会话 Agent——只有当整段对话都无法确定该术语时，它才去读仓库；最后一级得出的结论可以折进项目术语表。**
 
 ### 1.3 设计原则
 
 - 由模型自报其无能为力。备选方案——用本地规则猜测某个术语「看起来像项目专有」——已被用户否决，信号应当来自产出解释的同一次阅读。
+- 每一级在开跑之前就标好了价。段落调用是数百 tokens 量级，更宽的重试是数千，而一轮 Agent 会重发整段会话、在本机以十万级计价；因此本设计绝不踏入读者并不需要的那一级。
 - 交接复用会话自己的 turn 通道。不新增推理路径、不注册插件自有工具、不开第二段对话：指令变成一条普通的排队 turn，于是探索与前文的任何一轮一样被记录、可见、可重建。
-- Agent 只为正文给不出的东西付费。指令要求先用手上已有的上下文，因此 Agent 已经能看到的术语不需要读任何仓库文件。
 - 未经用户确认，任何内容都不进术语表。Agent 只提出一条条目，用户同意后才写入；项目文件受版本控制，因此这次写入可复核。
 
 ## 2. 范围
@@ -29,6 +29,7 @@ explain 侧信道调用只能看到一段正文：选区所在的那个段落。
 ### 2.1 范围内
 
 - explain 调用的「未确定」结果：其 prompt 指令、解析规则，以及它在远程结果中的位置。
+- 更宽上下文的重试：更宽的文本从哪来、如何封顶、以及它自己失败时怎么办。
 - 渲染原因行、交接入口与成本提示的面板状态。
 - 面板排入当前会话的那条预制指令。
 - Agent 结论的术语表写入路径及其之后的刷新。
@@ -36,7 +37,8 @@ explain 侧信道调用只能看到一段正文：选区所在的那个段落。
 
 ### 2.2 明确不做
 
-- explain 调用之前的宿主侧仓库检索。否决理由：它会把仓库内容发给会话所选的任何路由，并把一次两秒的查询变成一条检索流水线。
+- 宿主侧仓库检索。否决理由：它会把仓库内容发给会话所选的任何路由，并把一次两秒的查询变成一条检索流水线。
+- 在会话日志里搜索该术语的其他出现。暂缓理由：更宽的重试已覆盖常见情形，而这条会引入一条自带边界与测试的检索路径。
 - 把 Agent 的回答读回面板以便在那里提供保存按钮。暂缓理由：它迫使面板把「一个术语」绑定到「某一轮」，还要跨流式中、多轮与会话切换处理。
 - 解释结果缓存。用户已为本次变更否决。
 - 本包自有的任何面向模型工具。
@@ -46,6 +48,7 @@ explain 侧信道调用只能看到一段正文：选区所在的那个段落。
 
 - 命令能力承担不了这件事：`CommandResult` 只把文本返回给派发它的界面，且刻意永不触达模型，因此命令无法注入指令。
 - 客户端会话服务本来就拥有进入对话的通道：`binding(id).session.prompt(content, 'queue')` 与输入框调用的是同一个方法，而 `SessionBinding.session` 正是功能代码被允许持有的 outward 会话面。
+- 对话渲染器拥有更宽重试所需的消息边界，因此本次变更在它已提供的标注 seam 旁新增一个稳定钩子。
 - 项目术语表本来就有一个 watcher：外部编辑后会重读并扇出 `terminology/changed`，因此 Agent 用它自己的工具写入的文件无需新代码即可出现在面板与行内 Tooltip 中。
 - 设置卡片与两层术语表均不变。
 
@@ -65,7 +68,7 @@ explain 的 system prompt 增加一条指令：当这段正文无法确定该术
 
 ### 3.3 契约变更
 
-`TerminologyExplainResult` 的成功值改为判别联合：`{ kind: 'explained'; explanation: string }` 或 `{ kind: 'undetermined'; reason: string }`。每个消费方都按 `kind` 分支，而消费方只有本包自己的客户端半边。持久化的 `terminology/explain-request` 记录不变：它记录请求，不记录结果。
+`TerminologyExplainResult` 的成功值改为判别联合：`{ kind: 'explained'; explanation: string }` 或 `{ kind: 'undetermined'; reason: string }`。每个消费方都按 `kind` 分支，而消费方只有本包自己的客户端半边。持久化的 `terminology/explain-request` 记录形状不变：它记录请求而非结果，因此更宽的重试会追加一条同类型的记录。
 
 ### 3.4 不变的部分
 
@@ -73,21 +76,31 @@ explain 的 system prompt 增加一条指令：当这段正文无法确定该术
 - Tooltip 契约仍是「只有解释文本」：标记永远不会到达 Tooltip，因为它被流水线消费掉了。
 - 路由不变：优先配置的固定对，否则用会话上次的模型选择，两者皆无则 `NO_MODEL_ROUTE`。
 
+### 3.5 更宽上下文的重试
+
+- 一次未确定回答只触发一次重试，且仅在存在更宽上下文时才触发。窄调用的 context 是段落；重试的 context 是该段落所属的那条完整助手回答。
+- 由客户端提供。`evaluateSelection` 已经返回所在块的文本；它同时向上走到所在消息根并把它作为 `wideContext` 返回，当选区不在助手回答内时为空。本次变更新增标记该根节点的稳定钩子，位置就在本功能已依赖的标注 seam 旁。
+- 由宿主封顶。新增加校验的字段 `explainWideContextMaxBytes`，像 `explainContextMaxBytes` 封顶窄调用那样封顶重试的上下文；注册时拒绝比窄上限更小的宽上限。
+- 再次报未确定的重试把升级停在第二级：面板打开交接入口。给出解释的重试以解释收尾。无论哪种，读者看到的都是一个已定局的表面，绝不会看到重试在进行中。
+- 以自身方式失败的重试——截断、提供方失败、超时——不会掩盖第一次回答的诚实：面板仍然打开携带首次原因的未确定状态，并在原因下方渲染重试自己的字典文案，因为"更宽的一次尝试失败了"是读者需要知道的事实。
+- 不存在更宽上下文时（选区不在助手回答内，或窄调用已经用掉了它的全部），重试被跳过，面板直接打开交接入口。
+
 ## 4. 面板表面
 
 ### 4.1 新状态及其渲染
 
-- overlay 的请求状态新增 `undetermined`，携带原因。它渲染原因行、交接入口与关闭动作。
-- 该状态下不出现「加入术语表」动作：没有可保存的解释，而保存一句原因等于把模型明确表示无法背书的文案写进词表。
+- overlay 的请求状态新增 `undetermined`，携带原因与可选的「重试失败」行。它渲染原因、该行（存在时）、交接入口与关闭动作。
+- 该状态只在升级定局之后出现：加载态覆盖两次调用，因此读者绝不会看到面板从加载翻到未确定再翻回去。
+- 该状态下不出现「加入术语表」动作：没有可保存的解释，而保存一句原因等于把模型明确表示无法背书的文案写进术语表。
 - 客户端策略的 explain 动词从远程结果映射出该状态；面板既有的关闭、聚焦与播报行为不变。
 
 ### 4.2 成本提示
 
-交接入口在自己的标签旁说明它会发起一轮 Agent。一轮 turn 比它所替代的侧信道调用贵若干个数量级，因此读者是在看到成本的前提下做决定，而不是事后才发现。
+交接入口在自己的标签旁说明它会发起一轮 Agent。一轮 turn 比它之前的那两次调用贵若干个数量级，因此读者是在看到成本的前提下做决定，而不是事后才发现。
 
 ### 4.3 文案归属
 
-原因行按用户数据原样渲染模型文本。面板自己拥有的每一句话——通用原因、交接标签、成本提示——都放在两侧 locale 字典里，经既有的 `t` 席位读取。
+原因行按用户数据原样渲染模型文本。面板自己拥有的每一句话——通用原因、重试失败行、交接标签、成本提示——都放在两侧 locale 字典里，经既有的 `t` 席位读取。
 
 ## 5. Agent 交接
 
@@ -97,7 +110,7 @@ explain 的 system prompt 增加一条指令：当这段正文无法确定该术
 
 ### 5.2 预制指令
 
-该指令是面向模型的英文，写明术语、它来自的段落，以及什么样的回答算好。其确切文本固定在此，使面向模型的契约不会悄悄漂移：
+该指令是面向模型的英文，写明术语、它来自的段落、已经试过什么，以及什么样的回答算好。其确切文本固定在此，使面向模型的契约不会悄悄漂移：
 
 ```text
 Explain the term below for the reader of a DSH session.
@@ -105,7 +118,7 @@ Explain the term below for the reader of a DSH session.
 Term and its passage (JSON):
 <the same JSON object the explain call frames>
 
-Use the context you already hold in this conversation first. Read repository files, documentation, or configuration only when that context does not determine what the term means in this project. Then answer in at most three sentences of plain text, in the language of the passage.
+The reader's passage was not enough to determine the meaning, and neither was the whole answer it came from. Use any other context you already hold in this conversation, and read repository files, documentation, or configuration when the conversation does not determine what the term means in this project. Then answer in at most three sentences of plain text, in the language of the passage.
 
 Finish by proposing exactly one project glossary entry as "term: <term>" and "explanation: <your explanation>", and write it into the project glossary file only after the reader confirms.
 ```
@@ -134,47 +147,59 @@ Agent 用它自己的编辑工具写入条目，就在读者确认的那一轮�
 
 ## 7. 失败与边界情形
 
+- 更宽的重试给出答案：面板显示该解释，不出现交接入口。
+- 更宽的重试仍报未确定或已被跳过：面板携带首次原因打开交接入口。
+- 更宽的重试以自身方式失败：未确定状态照常打开，并在原因下方点名该次重试的失败。
 - 没有当前会话：交接入口报告 explain 动词本就报告的同一种缺失，面板播报它，而不是往空处排队。
 - 队列拒绝该 turn：播报写明失败，面板保持打开。
 - 读者在 turn 运行期间关掉面板：该 turn 本就是一条普通会话 turn，会继续运行；本设计没有任何部分依赖面板保持挂载。
 - 该术语之后被加入某一层术语表：标注路径接管面板，重复选择会显示存储的解释且不发起模型调用。
 - 对一个确实需要仓库的术语，模型始终不输出标记：读者仍可选中该词，在面板以未确定状态打开后使用交接入口，或直接问 Agent；README 把该标记记为模型自撰文本。
-- 对一段正文其实已经确定的术语，模型输出了标记：读者付出一轮 Agent 的代价换来一个有依据的答案，这正是本设计想要的交换。
+- 对一段正文其实已经确定的术语，模型输出了标记：读者付一次更宽的重试、最坏再付一轮 Agent，换来一个有依据的答案，这正是本设计想要的交换。
 
 ## 8. 测试与验证计划
 
 - 单元，流水线：按解析规则做一张表——只有标记、标记带原因、标记前有前导空白、标记大小写混合、标记出现在后面的行、标记后什么都没有、空答案、以及一段普通解释。
-- 单元，策略：客户端 explain 动词把未确定结果映射为新状态，且该状态携带原因。
-- 组件：overlay 渲染原因行、交接入口与成本提示，并在该状态隐藏加入术语表动作。
+- 单元，重试：一次未确定的窄回答恰好派发一次更宽的调用且其上下文为更宽文本；重试给出解释时返回该解释；重试再次未确定时返回未确定结果；重试失败时返回携带该失败的未确定结果；跳过重试（无更宽文本）时不派发任何调用。
+- 单元，边界：注册拒绝低于窄上限的宽上限，且重试的上下文按宽上限度量。
+- 单元，策略：客户端 explain 动词把未确定结果映射为新状态，且该状态携带原因与可选失败。
+- 组件：overlay 渲染原因行、可选失败行、交接入口与成本提示，并在该状态隐藏加入术语表动作。
 - 单元，交接：该动作向当前会话恰好排入一条消息，内容为固定的指令文本与组帧 JSON，并把被拒的准入表现为一次播报。
-- 组装级浏览器场景：脚本化的未确定回答打开面板并显示提示与入口；点击入口排入该 turn，对话记录中出现它；该场景同时保留既有的术语表与触屏断言。
+- 组装级浏览器场景：脚本化的「窄回答未确定 + 重试给出解释」让面板停在解释上；另一对脚本化回答始终未确定时打开提示与入口；点击入口排入该 turn，对话记录中出现它；该场景同时保留既有的术语表与触屏断言。
 - 文档门禁：README 对、Agent Note 对、两侧 locale 字典与本规格对通过 `doc-sync`，除既有的外部遗留失败外。
 
 ## 9. 触及的文件
 
-- `packages/client/ui-terminology/src/explain.ts`：prompt 指令、标记解析、未确定结果。
-- `packages/client/ui-terminology/src/types.ts`：判别联合的成功值。
-- `packages/client/ui-terminology/src/client/overlay-policy.ts`：未确定状态与交接动词。
+- `packages/client/ui-terminology/src/explain.ts`：prompt 指令、标记解析、未确定结果与这次重试。
+- `packages/client/ui-terminology/src/types.ts`：判别联合的成功值，以及宽上下文上限在配置类型中的位置。
+- `packages/client/ui-terminology/src/index.ts`：宽上下文上限及其注册校验，以及重试的接线。
+- `packages/client/ui-terminology/src/client/selection.ts`：从所在回答取得更宽上下文。
+- `packages/client/ui-chat/src/client/chat/AssistantMarkdown.tsx`：更宽上下文读取所用的稳定消息根钩子。
+- `packages/client/ui-terminology/src/client/overlay-policy.ts`：未确定状态、其可选失败与交接动词。
 - `packages/client/ui-terminology/src/client/index.ts`：explain 映射、交接动作与指令文本。
 - `packages/client/ui-terminology/src/client/TerminologyOverlay.tsx` 与 `TerminologyOverlay.module.css`：新状态的渲染。
 - `packages/client/ui-terminology/src/client/locales.ts`：两侧 locale 的新文案。
-- `packages/client/ui-terminology/README.md` 与 `README.zh.md`：状态、交接与来源限制。
-- `packages/client/ui-terminology/tests/explain.host.spec.ts`、`tests/apply.client.spec.ts` 与 overlay 策略 spec：第 8 节的用例。
+- `packages/client/ui-terminology/README.md` 与 `README.zh.md`：三级阶梯、状态、交接、来源限制与新的配置行。
+- `packages/client/ui-terminology/tests/explain.host.spec.ts`、`tests/selection.client.spec.ts`、`tests/apply.client.spec.ts` 与 overlay 策略 spec：第 8 节的用例。
 - `apps/web/tests/terminology-inline.e2e.ts`：组装级场景。
 - `.agents/notes/implemented/feature/2026-09-17-web-inline-terminology.md` 及其中文对应件：决策与被否决的备选。
 
 ## 10. 已知风险与取舍
 
-- 标记是模型自撰的：从不承认无知的模型保持今天的行为，而过报的模型会让读者付出一轮 Agent 的代价。本设计无法把这个判断变成确定性的；它能让分歧变得便宜且可见。
+- 标记是模型自撰的：从不承认无知的模型保持今天的行为，而过报的模型会付一次更宽的重试、还可能付一轮 Agent。本设计无法把这个判断变成确定性的；它能让分歧变得便宜且可见。
+- 更宽的重试让未确定路径上的模型开销翻倍。实测的各级把这件事限制住了：一次重试是数千 tokens 量级，而一轮 Agent 是数十万量级。
+- 更宽的上下文仍可能错过答案，此时读者为这次重试付费，然后照样走到 Agent。
 - 排入的指令在对话记录里归属于读者，见第 5.3 节。
-- 面板多出第三种结果，客户端半边的状态机与测试随之增长。
+- 面板多出第三种结果、流水线多出一次派发，两半边的状态机与测试随之增长。
 - 探索那一轮不受本包约束：它服从会话自己的工具与审批策略，这是刻意的，因为读者的会话本就拥有那些决定权。
 
 ## 附录 A：考虑过并否决的备选
 
 - **用本地确定性规则判断「这个术语看起来像项目专有」**（既不在术语表又在工作区有命中，或形如代码标识符）。用户否决：信号应来自产出解释的那次阅读，而不是看不见含义的形状规则。
 - **总是显示交接入口。** 否决：它会让每次查询都邀请一轮 Agent，并丢掉让面板保持诚实的「这段正文不够」这句话。
-- **在 explain 调用之前做宿主侧仓库检索。** 否决：它每次查询都把仓库内容发给所路由的模型，并与 Agent 用工具做得更好的事情重复。
+- **把 Agent 轮内的「先用手上已有的上下文」当作第二级。** 实测后否决：一轮 Agent 在模型读到任何东西之前就要重发整段会话，为一个独立调用本就能读到的上下文付这笔钱，是最贵的可能顺序。
+- **宿主侧仓库检索。** 否决：它每次查询都把仓库内容发给所路由的模型，并与 Agent 用工具做得更好的事情重复。
+- **在会话日志里搜索该术语的其他出现。** 暂缓：所在回答已覆盖常见情形，而日志检索会引入一条自带边界与测试的检索路径。
 - **把 Agent 的回答读回面板。** 暂缓：它把「一个术语」绑定到「某一轮」，并成倍增加面板必须挺过的状态。
 - **以术语与段落为键的解释结果缓存。** 用户为本次变更否决；该想法的持久化版本已由术语表承担。
 - **基于命令的交接。** 否决：`CommandResult` 永不触达模型，因此命令无法递送指令。
@@ -183,7 +208,8 @@ Agent 用它自己的编辑工具写入条目，就在读者确认的那一轮�
 ## 附录 B：实测数据
 
 - 按现状交付的一次 explain，在所路由的本地模型、开启推理时：一个短术语约 400 tokens 量级；同一个问题遇到推理偏重的术语达到 1303 completion tokens（合计约 1520）。
+- 同一路由下短段落与顶到窄上限的段落对比：prompt tokens 从 160 变到 601，这正是更宽重试所交换的区间。
 - 在同一台网关上用 `chat_template_kwargs.enable_thinking=false` 关闭推理：同一个推理偏重的术语只需 57 completion tokens（合计约 277），答案同样完整。记为另一根独立杠杆；本设计不改推理策略。
 - 该网关的前缀缓存：`prompt_tokens_details` 为空，同一段 1288 tokens 前缀连发三次每次都按 1288 个全新 tokens 计费，因此复用已有会话前缀在这条路由上省不下任何东西。
-- 缓存读取在任何地方都不是免费的：本机某会话的一轮记录到 219,392 个缓存读取 tokens，因此把问题追加到会话前缀上要比本设计保留的独立调用贵得多。
+- 缓存读取在任何地方都不是免费的：本机某会话的一轮记录到 219,392 个缓存读取 tokens，这正是「一轮 Agent 的输入」与「一次独立调用的数百」之间的量级差。
 - 标记自身的成本：新增指令约 30 个输入 tokens，一次未确定回答约 10 到 20 个输出 tokens。
