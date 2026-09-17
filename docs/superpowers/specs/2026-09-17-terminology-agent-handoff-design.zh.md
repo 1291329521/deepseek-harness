@@ -33,6 +33,7 @@ explain 侧信道调用只能看到一段正文：选区所在的那个段落。
 - 渲染原因行、交接入口与成本提示的面板状态。
 - 面板排入当前会话的那条预制指令。
 - Agent 结论的术语表写入路径及其之后的刷新。
+- 面板展示的「本次查询用量」行，包含提供方报告缓存计数器时的缓存数据。
 - 两侧 locale 字典的文案、包 README 对、以及归属方 Agent Note 对。
 
 ### 2.2 明确不做
@@ -85,6 +86,13 @@ explain 的 system prompt 增加一条指令：当这段正文无法确定该术
 - 以自身方式失败的重试——截断、提供方失败、超时——不会掩盖第一次回答的诚实：面板仍然打开携带首次原因的未确定状态，并在原因下方渲染重试自己的字典文案，因为"更宽的一次尝试失败了"是读者需要知道的事实。
 - 不存在更宽上下文时（选区不在助手回答内，或窄调用已经用掉了它的全部），重试被跳过，面板直接打开交接入口。
 
+### 3.6 用量与缓存报告
+
+- 每次 explain 调用都以一个 `usage` chunk 收尾，流水线保留最后一个。因此结果携带该次调用的 `inputTokens`、`outputTokens`、提供方报告时的 `totalTokens`，以及提供方报告时的 `cacheReadTokens`、`cacheWriteTokens` 与 `reasoningTokens`。
+- 未被报告的计数器保持缺失。返回不了缓存细节的路由不等于缓存未命中，两半边都不得为它编造一个零：本功能实测所在的那台本地网关完全不报告缓存计数器，而实测的一条云路由在未命中时明确报告零、命中时报告计数。
+- 每次调用报告自己的用量，重试是第二次调用、自带一份。面板把一次查询真正跑过的调用求和，并说明覆盖了几次调用，因此两级查询不会被看成一级。
+- 会话自己的 token 计量仍是"这个会话花了多少"的权威，而且它已经统计了这些调用（因为它们携带会话 id）。面板那一行报告的是一次查询；它是便利视图，不是账本。
+
 ## 4. 面板表面
 
 ### 4.1 新状态及其渲染
@@ -101,6 +109,13 @@ explain 的 system prompt 增加一条指令：当这段正文无法确定该术
 ### 4.3 文案归属
 
 原因行按用户数据原样渲染模型文本。面板自己拥有的每一句话——通用原因、重试失败行、交接标签、成本提示——都放在两侧 locale 字典里，经既有的 `t` 席位读取。
+
+### 4.4 用量行
+
+- 它渲染在解释下方，在未确定状态下同样渲染，因为即使两级都没产出答案，那两次调用也已经付过费。
+- 它写明这次查询花了什么：输入 tokens、输出 tokens，以及提供方报告时的总计。缓存从句只来自被报告的计数器——命中就写出缓存读取计数，报告为零就说明没有命中缓存，而完全不报告计数器的路由则省略该从句，而不是声称一次未命中。
+- 它覆盖这次查询真正跑过的层级：一次调用，或在更宽重试跑过时的两次。交接那一轮 Agent 刻意不在其中，因为那一轮属于会话，而会话计量已经展示它。
+- Tooltip 永不携带它。Tooltip 契约仍是只有解释文本，而命中术语表不发起任何调用，也就没有可报告的用量。
 
 ## 5. Agent 交接
 
@@ -165,20 +180,23 @@ Agent 用它自己的编辑工具写入条目，就在读者确认的那一轮�
 - 单元，策略：客户端 explain 动词把未确定结果映射为新状态，且该状态携带原因与可选失败。
 - 组件：overlay 渲染原因行、可选失败行、交接入口与成本提示，并在该状态隐藏加入术语表动作。
 - 单元，交接：该动作向当前会话恰好排入一条消息，内容为固定的指令文本与组帧 JSON，并把被拒的准入表现为一次播报。
+- 单元，用量：每次调用收尾的用量被捕获并返回；完全不报告缓存计数器的路由产出不带这些字段的结果；跑过重试的查询报告求和后的用量与「两次调用」的计数。
+- 组件：overlay 在解释下方与未确定状态下渲染用量行，依据被报告的计数写出缓存命中，依据被报告的零写出未命中，而在什么都没报告时省略缓存从句。
+- 组件：被标注术语的 Tooltip 渲染与从前一致，不出现用量行。
 - 组装级浏览器场景：脚本化的「窄回答未确定 + 重试给出解释」让面板停在解释上；另一对脚本化回答始终未确定时打开提示与入口；点击入口排入该 turn，对话记录中出现它；该场景同时保留既有的术语表与触屏断言。
 - 文档门禁：README 对、Agent Note 对、两侧 locale 字典与本规格对通过 `doc-sync`，除既有的外部遗留失败外。
 
 ## 9. 触及的文件
 
-- `packages/client/ui-terminology/src/explain.ts`：prompt 指令、标记解析、未确定结果与这次重试。
-- `packages/client/ui-terminology/src/types.ts`：判别联合的成功值，以及宽上下文上限在配置类型中的位置。
+- `packages/client/ui-terminology/src/explain.ts`：prompt 指令、标记解析、未确定结果、这次重试，以及它返回的收尾用量。
+- `packages/client/ui-terminology/src/types.ts`：判别联合的成功值、它携带的用量，以及宽上下文上限在配置类型中的位置。
 - `packages/client/ui-terminology/src/index.ts`：宽上下文上限及其注册校验，以及重试的接线。
 - `packages/client/ui-terminology/src/client/selection.ts`：从所在回答取得更宽上下文。
 - `packages/client/ui-chat/src/client/chat/AssistantMarkdown.tsx`：更宽上下文读取所用的稳定消息根钩子。
-- `packages/client/ui-terminology/src/client/overlay-policy.ts`：未确定状态、其可选失败与交接动词。
+- `packages/client/ui-terminology/src/client/overlay-policy.ts`：未确定状态、其可选失败、本次查询用量与交接动词。
 - `packages/client/ui-terminology/src/client/index.ts`：explain 映射、交接动作与指令文本。
-- `packages/client/ui-terminology/src/client/TerminologyOverlay.tsx` 与 `TerminologyOverlay.module.css`：新状态的渲染。
-- `packages/client/ui-terminology/src/client/locales.ts`：两侧 locale 的新文案。
+- `packages/client/ui-terminology/src/client/TerminologyOverlay.tsx` 与 `TerminologyOverlay.module.css`：新状态的渲染与用量行。
+- `packages/client/ui-terminology/src/client/locales.ts`：两侧 locale 的新文案，含用量行。
 - `packages/client/ui-terminology/README.md` 与 `README.zh.md`：三级阶梯、状态、交接、来源限制与新的配置行。
 - `packages/client/ui-terminology/tests/explain.host.spec.ts`、`tests/selection.client.spec.ts`、`tests/apply.client.spec.ts` 与 overlay 策略 spec：第 8 节的用例。
 - `apps/web/tests/terminology-inline.e2e.ts`：组装级场景。
@@ -191,6 +209,7 @@ Agent 用它自己的编辑工具写入条目，就在读者确认的那一轮�
 - 更宽的上下文仍可能错过答案，此时读者为这次重试付费，然后照样走到 Agent。
 - 排入的指令在对话记录里归属于读者，见第 5.3 节。
 - 面板多出第三种结果、流水线多出一次派发，两半边的状态机与测试随之增长。
+- 用量行只报告提供方报告的内容：没有缓存计数器的路由只显示输入与输出，而且这个数字是 tokens 而不是钱，因为计价属于部署方，不属于这个面板。
 - 探索那一轮不受本包约束：它服从会话自己的工具与审批策略，这是刻意的，因为读者的会话本就拥有那些决定权。
 
 ## 附录 A：考虑过并否决的备选

@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write docs/superpowers/specs/2026-09-17-terminology-agent-handoff-design.md
-2026-09-17-terminology-agent-handoff-design.md: 76464515fc6499e7d2b9b2bdd64e29a66719864c
-2026-09-17-terminology-agent-handoff-design.zh.md: af7b389b60dd9d5ef17a98cef1499e12cb642757
+2026-09-17-terminology-agent-handoff-design.md: c9e3a66aa2e52649f6e6e562c50d717cf3e212b5
+2026-09-17-terminology-agent-handoff-design.zh.md: b5cc6ea5958040776f04f183772841a79e86299d

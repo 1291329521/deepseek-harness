@@ -33,6 +33,7 @@ The explain side-channel call sees exactly one prose block: the paragraph around
 - The panel state that renders the reason, the handoff entry, and the cost notice.
 - The prepared instruction the panel queues into the current session.
 - The glossary write path for the agent's conclusion and the refresh that follows it.
+- The per-lookup usage line the panel shows, including the provider's cache counters when it reports them.
 - Copy in both locale dictionaries, the package README pair, and the owning Agent Note pair.
 
 ### 2.2 Explicitly out of scope
@@ -85,6 +86,13 @@ The explain system prompt gains one instruction: when the passage does not deter
 - A retry that fails on its own terms — truncation, a provider failure, a timeout — does not hide the first answer's honesty: the panel still opens the undetermined state with the first reason, and renders the retry's own dictionary line beneath it, because a wider attempt that failed is a fact the reader needs.
 - When no wider context exists (no enclosing assistant answer, or the narrow call already consumed the whole of it), the retry is skipped and the panel opens the handoff entry directly.
 
+### 3.6 Usage and cache reporting
+
+- Every explain call ends with a `usage` chunk, and the pipeline keeps the terminal one. The result therefore carries the call's `inputTokens`, `outputTokens`, the provider's `totalTokens` when it reports one, and the provider's `cacheReadTokens`, `cacheWriteTokens`, and `reasoningTokens` when it reports those.
+- An unreported counter stays absent. A route that returns no cache detail is not a cache miss, and neither half may fabricate a zero for it: the local gateway this feature was measured against reports no cache counters at all, while one measured cloud route reports an explicit zero on a miss and a count on a hit.
+- Each call reports its own usage, and the retry is a second call with its own. The panel sums the calls a lookup actually ran and states how many that was, so a two-rung lookup cannot look like a one-rung one.
+- The session's token meter stays the authority for what the session spent, and it already counts these calls because they carry the session id. The panel's line reports one lookup; it is a convenience view, not the accounting.
+
 ## 4. Panel Surface
 
 ### 4.1 New stage and its rendering
@@ -101,6 +109,13 @@ The handoff entry states, beside its label, that it starts one agent turn. A tur
 ### 4.3 Copy ownership
 
 The reason line renders the model's text verbatim as user data. Every string the panel owns — the reason fallback, the retry-failure line, the handoff label, the cost notice — lives in the locale dictionaries in both locales, reached through the existing `t` seat.
+
+### 4.4 The usage line
+
+- It renders beneath an explanation, and in the undetermined state as well, because those calls were paid for even though neither rung produced an answer.
+- It names what the lookup spent: input tokens, output tokens, and the provider's total when it reports one. The cache clause comes only from reported counters — a hit states the cache-read count, a reported zero states that nothing was served from cache, and a route that reports no counters leaves the clause out rather than claiming a miss.
+- It covers the rungs this lookup ran: one call, or two when the wider retry ran. The handoff's agent turn is deliberately outside it, because that turn is the session's, and the session meter already shows it.
+- The tooltip never carries it. The tooltip contract stays the explanation text alone, and a glossary hit makes no call whose usage could be reported.
 
 ## 5. The Agent Handoff
 
@@ -165,20 +180,23 @@ The glossary file is a workspace file under version control, so `git diff` is th
 - Unit, policy: the client explain verb maps the undetermined outcome to the new state, and the state carries the reason and the optional failure.
 - Component: the overlay renders the reason, the optional failure line, the handoff entry, and the cost notice, and hides the add-to-glossary action in this state.
 - Unit, handoff: the action queues exactly one message into the current session, with the pinned instruction text and the framed JSON, and surfaces a rejected admission as an announcement.
+- Unit, usage: each call's terminal usage is captured and returned; a route that reports no cache counters yields a result without them; a lookup that ran the retry reports the summed usage and a call count of two.
+- Component: the overlay renders the usage line under an explanation and in the undetermined state, states a cache hit from a reported count, states no hit from a reported zero, and omits the cache clause when nothing was reported.
+- Component: the annotated-term tooltip renders the same as before, with no usage line.
 - Assembled browser scenario: a scripted undetermined narrow reply followed by an explained retry settles the panel on the explanation; a second scripted pair that stays undetermined opens the hint and the entry; clicking the entry queues the turn and the transcript shows it; the scenario keeps the existing glossary and touch assertions.
 - Docs gates: the README pair, the Agent Note pair, the locale dictionaries, and this pair pass `doc-sync` apart from the pre-existing foreign failures.
 
 ## 9. Files Touched
 
-- `packages/client/ui-terminology/src/explain.ts`: prompt instruction, marker parsing, undetermined result, the retry.
-- `packages/client/ui-terminology/src/types.ts`: the discriminated success value and the wide-context bound's place in the config type.
+- `packages/client/ui-terminology/src/explain.ts`: prompt instruction, marker parsing, undetermined result, the retry, and the terminal usage it returns.
+- `packages/client/ui-terminology/src/types.ts`: the discriminated success value, the usage it carries, and the wide-context bound's place in the config type.
 - `packages/client/ui-terminology/src/index.ts`: the wide-context bound and its registration check, and the retry wiring.
 - `packages/client/ui-terminology/src/client/selection.ts`: the wider context from the enclosing answer.
 - `packages/client/ui-chat/src/client/chat/AssistantMarkdown.tsx`: the stable message-root hook the wider context is read from.
-- `packages/client/ui-terminology/src/client/overlay-policy.ts`: the undetermined state, its optional failure, and the handoff verb.
+- `packages/client/ui-terminology/src/client/overlay-policy.ts`: the undetermined state, its optional failure, the per-lookup usage, and the handoff verb.
 - `packages/client/ui-terminology/src/client/index.ts`: the explain mapping, the handoff action, and the instruction text.
-- `packages/client/ui-terminology/src/client/TerminologyOverlay.tsx` and `TerminologyOverlay.module.css`: the new state's rendering.
-- `packages/client/ui-terminology/src/client/locales.ts`: the new copy in both locales.
+- `packages/client/ui-terminology/src/client/TerminologyOverlay.tsx` and `TerminologyOverlay.module.css`: the new state's rendering and the usage line.
+- `packages/client/ui-terminology/src/client/locales.ts`: the new copy in both locales, the usage line included.
 - `packages/client/ui-terminology/README.md` and `README.zh.md`: the rungs, the state, the handoff, the attribution limitation, and the new config row.
 - `packages/client/ui-terminology/tests/explain.host.spec.ts`, `tests/selection.client.spec.ts`, `tests/apply.client.spec.ts`, and the overlay policy spec: the cases in section 8.
 - `apps/web/tests/terminology-inline.e2e.ts`: the assembled scenario.
@@ -191,6 +209,7 @@ The glossary file is a workspace file under version control, so `git diff` is th
 - The wider context may still miss the answer, in which case the reader pays for the retry and then reaches the agent anyway.
 - The queued instruction is attributed to the reader in the transcript, as section 5.3 records.
 - The panel gains a third outcome and the pipeline gains a second dispatch, so both halves' state machines and their tests grow with it.
+- The usage line reports what the provider reports: a route with no cache counters shows input and output alone, and the number is tokens rather than money, because pricing belongs to the deployment and not to this panel.
 - The exploration turn is not bounded by this package: it obeys the session's own tool and approval policy, which is deliberate, because the reader's session already owns those decisions.
 
 ## Appendix A: Alternatives Considered and Rejected
