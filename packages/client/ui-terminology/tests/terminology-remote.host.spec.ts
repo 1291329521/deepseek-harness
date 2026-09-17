@@ -4,7 +4,7 @@
  * lifecycle. Settings and sessions are scripted services; the glossary file,
  * atomic write, and lock run for real.
  */
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -238,6 +238,15 @@ describe('TerminologyService remote contract', () => {
     expect(result.value.projectTerms).toEqual([])
     expect(result.value.projectError).toContain('cannot prepare project glossary directory')
   })
+
+  it('state leaves the workspace untouched when no project glossary home exists', async () => {
+    const h = await harness()
+    await expect(h.service.state({ sessionId })).resolves.toMatchObject({
+      ok: true,
+      value: { projectTerms: [] },
+    })
+    await expect(readdir(join(h.root, '.dsh'))).rejects.toThrow(/ENOENT/)
+  })
 })
 
 describe('TerminologyService remember', () => {
@@ -390,6 +399,7 @@ describe('TerminologyService remember', () => {
 describe('TerminologyService project watcher', () => {
   it('re-reads an externally edited project file within the settle budget', async () => {
     const h = await harness()
+    await writeProjectFile(h, 'terms:\n  - term: seed\n    explanation: none\n')
     await h.service.state({ sessionId })
     await sleep(400)
     await writeProjectFile(h, 'terms:\n  - term: external\n    explanation: edit\n')
@@ -400,6 +410,7 @@ describe('TerminologyService project watcher', () => {
 
   it('records a watcher failure as the project error', async () => {
     const h = await harness()
+    await writeProjectFile(h, 'terms:\n  - term: seed\n    explanation: none\n')
     await h.service.state({ sessionId })
     // Test-only reach into internals: chokidar has no deterministic way to fail
     // a live watcher, so the error handler is exercised by emitting through it.
@@ -424,6 +435,7 @@ describe('TerminologyService project watcher', () => {
 
   it('ignores a watcher event that states no content change', async () => {
     const h = await harness()
+    await writeProjectFile(h, 'terms:\n  - term: seed\n    explanation: none\n')
     await h.service.state({ sessionId })
     await sleep(400)
     // Test-only reach into internals: chokidar offers no way to make a watched
@@ -436,6 +448,7 @@ describe('TerminologyService project watcher', () => {
 
   it('closes the project watcher when the owning fiber is disposed', async () => {
     const h = await harness()
+    await writeProjectFile(h, 'terms:\n  - term: seed\n    explanation: none\n')
     await h.service.state({ sessionId })
     // Test-only reach into internals: chokidar exposes no observable close
     // event, so the release is proven through the watcher's own `close`.
@@ -450,6 +463,7 @@ describe('TerminologyService project watcher', () => {
 
   it('stops notifying after the owning fiber is disposed', async () => {
     const h = await harness()
+    await writeProjectFile(h, 'terms:\n  - term: seed\n    explanation: none\n')
     await h.service.state({ sessionId })
     await sleep(400)
     await writeProjectFile(h, 'terms:\n  - term: first\n    explanation: one\n')

@@ -204,6 +204,10 @@ export default class TerminologyService extends TypertRemoteService {
     }
     let merged: readonly GlossaryTerm[]
     try {
+      // The project glossary's home is created by the write that fills it; reads and
+      // watchers never touch workspace structure. The directory must exist before the
+      // writer lock file is created beside the glossary.
+      await fs.mkdir(path.dirname(projectPath), { recursive: true, mode: PRIVATE_DIR_MODE })
       await this.ensureWatcher(projectPath)
       merged = await withFileLock(projectPath, async () => {
         const current = await this.loadProjectFile(projectPath)
@@ -323,10 +327,18 @@ export default class TerminologyService extends TypertRemoteService {
   /** Start (once per path) the watcher that re-reads externally edited files. */
   private async ensureWatcher(projectPath: string): Promise<void> {
     if (this.watchers.has(projectPath)) return
-    // chokidar closes the watcher on a path that is missing at setup, so the
-    // containing directory exists first: the file itself may not (settings-file
-    // pre-creates its home directory for the same reason).
-    await fs.mkdir(path.dirname(projectPath), { recursive: true, mode: PRIVATE_DIR_MODE })
+    // Reading never creates workspace structure: a missing containing directory has
+    // no glossary to watch, and the watcher starts when the directory first exists —
+    // through the write that fills it or through the user's own file. chokidar closes
+    // a watcher whose containing directory is missing at setup, so the directory's
+    // presence is checked, never created.
+    const directory = await fs.stat(path.dirname(projectPath)).catch(
+      // ENOENT is the ordinary absence; every stat failure just means "nothing to
+      // watch yet", and a later write or read retries the arming.
+      () => undefined,
+    )
+    if (directory === undefined) return
+    if (!directory.isDirectory()) throw new Error(`"${path.dirname(projectPath)}" is not a directory`)
     if (this.watchers.has(projectPath)) return
     const watcher = watch(projectPath, {
       ignoreInitial: true,
