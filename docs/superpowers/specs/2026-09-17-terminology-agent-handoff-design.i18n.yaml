@@ -1,0 +1,6 @@
+# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write docs/superpowers/specs/2026-09-17-terminology-agent-handoff-design.md
+2026-09-17-terminology-agent-handoff-design.md: 09a4f1df429c744a7f020a392f3748e5a4f0f1e2
+2026-09-17-terminology-agent-handoff-design.zh.md: a2bc8a77018a72a2a43ff32b0ac57699c91bd0e2
