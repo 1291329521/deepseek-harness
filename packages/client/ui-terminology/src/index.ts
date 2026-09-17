@@ -14,14 +14,17 @@ import type { SettingsScope } from '@deepseek-ai/dsh-settings'
 import type { Session } from '@deepseek-ai/dsh-session'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
+import z from '@deepseek-ai/schemastery'
 import { withFileLock, writeFileAtomic } from '@deepseek-ai/dsh-atomic-write'
 import { watch, type FSWatcher } from 'chokidar'
 import { stringify } from 'yaml'
 import { explainTerm, type ExplainRoute } from './explain.ts'
 import { TERMINOLOGY_NAMESPACE } from './namespace.ts'
 import {
+  DEFAULT_EXPLAIN_SHORTCUT,
+  DEFAULT_PROJECT_GLOSSARY_PATH,
   GLOSSARY_EXPLANATION_MAX_CHARS,
-  TerminologyConfigSchema,
+  glossaryTermSchema,
   TerminologySettingsSchema,
   type TerminologyConfig,
   type TerminologySettings,
@@ -95,8 +98,20 @@ declare module '@deepseek-ai/cordis' {
 
 /** The terminology Host service: vocabulary owner and remote surface. */
 export default class TerminologyService extends TypertRemoteService {
-  static inject = ['settings', 'sessions', 'llm', 'sessionProjections'] as const
-  static Config = TerminologyConfigSchema
+  static inject = ['settings', 'sessions', 'llm', 'sessionProjections']
+  static Config: z<TerminologyConfig> = z.object({
+    enabled: z.boolean().default(true),
+    terms: z.array(glossaryTermSchema).default([]),
+    explainShortcut: z.string().default(DEFAULT_EXPLAIN_SHORTCUT),
+    projectGlossaryPath: z.string().default(DEFAULT_PROJECT_GLOSSARY_PATH),
+    explainProvider: z.string(),
+    explainModel: z.string(),
+    explainMaxTokens: z.number().min(1).default(256),
+    explainMaxSentences: z.number().min(1).default(3),
+    explainTimeoutMs: z.number().min(1).default(30_000),
+    explainTermMaxChars: z.number().min(1).default(64),
+    explainContextMaxBytes: z.number().min(1).default(2_048),
+  })
 
   private readonly config: TerminologyConfig
   /** Composition base for the settings layer: the user-visible Config fields. */

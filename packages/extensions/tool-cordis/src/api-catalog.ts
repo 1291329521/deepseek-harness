@@ -2487,6 +2487,31 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'terminology',
+    summary: 'The terminology Host service: vocabulary owner and remote surface.',
+    description: 'The terminology Host service: vocabulary owner and remote surface.',
+    methods: [
+      {
+        signature: '@Remote(\'state\') async state(request: TerminologyStateRequest): Promise<TerminologyStateResult>',
+        description: 'Read one session\'s full render inputs.',
+        parameters: [{ name: 'request', description: 'Session identity.' }],
+        returns: 'Enabled flag, shortcut, selection length limit, project path, both layers, and any project-file read/parse error; `SESSION_NOT_FOUND` / `NO_WORKSPACE` otherwise.',
+      },
+      {
+        signature: '@Remote(\'remember\') async remember(request: TerminologyRememberRequest): Promise<TerminologyRememberResult>',
+        description: 'Persist one entry into the chosen layer.',
+        parameters: [{ name: 'request', description: 'Term, explanation, target layer, and owning session.' }],
+        returns: 'Empty success, or `TERM_INVALID` / `SESSION_NOT_FOUND` / `NO_WORKSPACE` / `GLOSSARY_INVALID` / `GLOSSARY_WRITE_FAILED` / `SETTINGS_CONFLICT`.',
+      },
+      {
+        signature: '@Remote(\'explain\') async explain(request: TerminologyExplainRequest): Promise<TerminologyExplainResult>',
+        description: 'Explain one manually selected term through the session\'s model route.',
+        parameters: [{ name: 'request', description: 'Session, selected term, and surrounding context.' }],
+        returns: 'The plain-prose explanation, or `SESSION_NOT_FOUND` / `TERM_INVALID` / `CONTEXT_TOO_LARGE` / `NO_MODEL_ROUTE` / `LLM_FAILED` / `TIMEOUT`.',
+      },
+    ],
+  },
+  {
     key: 'timer',
     summary: 'Disposable timer helpers mixed into Cordis contexts.',
     description: 'Disposable timer helpers mixed into Cordis contexts.',
@@ -3354,6 +3379,14 @@ export const EVENT_API: readonly EventApiEntry[] = [
     parameters: [],
   },
   {
+    name: 'terminology/changed',
+    mode: 'emit',
+    signature: '\'terminology/changed\'(sessionId: SessionId | undefined): void',
+    summary: 'The rendered vocabulary changed: a settings write, an external edit of the project glossary file, or a successful remember.',
+    description: 'The rendered vocabulary changed: a settings write, an external edit of the project glossary file, or a successful remember. Observer failures cannot veto the write that produced it. A global change dispatches with no argument, so forwarded listeners see an empty argument list while local listeners read the missing argument as `undefined`.',
+    parameters: [{ name: 'sessionId', description: 'session whose project vocabulary changed, or `undefined` when the global layer or an unattributed change moved.' }],
+  },
+  {
     name: 'tools/change',
     mode: 'emit',
     signature: '\'tools/change\'(): void',
@@ -3971,7 +4004,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'DeepSeekLlmApiExtensionRequest',
-    declaration: 'export interface DeepSeekLlmApiExtensionRequest {\n    readonly body: Readonly<Record<string, DeepSeekLlmApiJson>>;\n    readonly sessionId?: string;\n    readonly purpose?: \'compaction\' | \'session-title\';\n    readonly signal: AbortSignal;\n}',
+    declaration: 'export interface DeepSeekLlmApiExtensionRequest {\n    readonly body: Readonly<Record<string, DeepSeekLlmApiJson>>;\n    readonly sessionId?: string;\n    readonly purpose?: \'compaction\' | \'session-title\' | \'terminology\';\n    readonly signal: AbortSignal;\n}',
   },
   {
     name: 'DeepSeekLlmApiJson',
@@ -4187,7 +4220,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'GenerateOptions',
-    declaration: 'export interface GenerateOptions {\n    provider: string;\n    model: string;\n    reasoningEffort?: ReasoningEffortId;\n    messages: Message[];\n    system?: string;\n    tools?: ToolSchema[];\n    temperature?: number;\n    maxTokens?: number;\n    stop?: string[];\n    signal?: AbortSignal;\n    sessionId?: Branded<\'SessionId\'>;\n    purpose?: \'compaction\' | \'session-title\';\n}',
+    declaration: 'export interface GenerateOptions {\n    provider: string;\n    model: string;\n    reasoningEffort?: ReasoningEffortId;\n    messages: Message[];\n    system?: string;\n    tools?: ToolSchema[];\n    temperature?: number;\n    maxTokens?: number;\n    stop?: string[];\n    signal?: AbortSignal;\n    sessionId?: Branded<\'SessionId\'>;\n    purpose?: \'compaction\' | \'session-title\' | \'terminology\';\n}',
   },
   {
     name: 'GenericCallView',
@@ -4196,6 +4229,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'GenericResultView',
     declaration: 'export interface GenericResultView {\n    card: \'generic\';\n    title?: string;\n    content?: ContentBlock[];\n}',
+  },
+  {
+    name: 'GlossaryLayer',
+    declaration: 'export type GlossaryLayer = \'global\' | \'project\';',
+  },
+  {
+    name: 'GlossaryTerm',
+    declaration: 'export interface GlossaryTerm {\n    readonly term: string;\n    readonly explanation: string;\n}',
   },
   {
     name: 'GoalActivation',
@@ -5872,6 +5913,50 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'TerminalWaitReason',
     declaration: 'export type TerminalWaitReason = \'stdin_read\' | \'inferred_idle\' | \'timeout\' | \'session_exit\';',
+  },
+  {
+    name: 'TerminologyError',
+    declaration: 'export interface TerminologyError {\n    readonly code: TerminologyErrorCode;\n    readonly message: string;\n}',
+  },
+  {
+    name: 'TerminologyErrorCode',
+    declaration: 'export type TerminologyErrorCode = \'SESSION_NOT_FOUND\' | \'GLOSSARY_INVALID\' | \'TERM_INVALID\' | \'CONTEXT_TOO_LARGE\' | \'NO_MODEL_ROUTE\' | \'LLM_FAILED\' | \'TIMEOUT\' | \'GLOSSARY_WRITE_FAILED\' | \'NO_WORKSPACE\' | \'SETTINGS_CONFLICT\';',
+  },
+  {
+    name: 'TerminologyExplainRequest',
+    declaration: 'export interface TerminologyExplainRequest {\n    readonly sessionId: SessionId;\n    readonly term: string;\n    readonly context: string;\n}',
+  },
+  {
+    name: 'TerminologyExplainResult',
+    declaration: 'export type TerminologyExplainResult = TerminologyResult<TerminologyExplainValue>;',
+  },
+  {
+    name: 'TerminologyExplainValue',
+    declaration: 'export interface TerminologyExplainValue {\n    readonly explanation: string;\n}',
+  },
+  {
+    name: 'TerminologyRememberRequest',
+    declaration: 'export interface TerminologyRememberRequest {\n    readonly sessionId: SessionId;\n    readonly term: string;\n    readonly explanation: string;\n    readonly layer: GlossaryLayer;\n}',
+  },
+  {
+    name: 'TerminologyRememberResult',
+    declaration: 'export type TerminologyRememberResult = TerminologyResult<Record<string, never>>;',
+  },
+  {
+    name: 'TerminologyResult',
+    declaration: 'export type TerminologyResult<T> = {\n    readonly ok: true;\n    readonly value: T;\n} | {\n    readonly ok: false;\n    readonly error: TerminologyError;\n};',
+  },
+  {
+    name: 'TerminologyState',
+    declaration: 'export interface TerminologyState {\n    readonly enabled: boolean;\n    readonly shortcut: string;\n    readonly termMaxChars: number;\n    readonly projectPath: string;\n    readonly projectTerms: readonly GlossaryTerm[];\n    readonly projectError?: string;\n    readonly globalTerms: readonly GlossaryTerm[];\n}',
+  },
+  {
+    name: 'TerminologyStateRequest',
+    declaration: 'export interface TerminologyStateRequest {\n    readonly sessionId: SessionId;\n}',
+  },
+  {
+    name: 'TerminologyStateResult',
+    declaration: 'export type TerminologyStateResult = TerminologyResult<TerminologyState>;',
   },
   {
     name: 'TokenMeasurement',

@@ -41,37 +41,31 @@ export const TerminologySettingsSchema: z<TerminologySettings> = z.object({
   terms: z.array(glossaryTermSchema).default([]),
 })
 
-/** Validated Host configuration (all fields, no hardcoded tunables). */
+/** Validated Host configuration; its schemastery schema lives inline on `TerminologyService.Config`. */
 export interface TerminologyConfig {
+  /** Master switch for terminology annotation across both vocabulary layers. */
   readonly enabled: boolean
   /** Schemastery array fields stay mutable; entries are readonly values. */
   terms: GlossaryTerm[]
+  /** Default manual-explain chord surfaced by the settings card. */
   readonly explainShortcut: string
   /** Project glossary file, workspace-relative; absolute or escaping paths never resolve. */
   readonly projectGlossaryPath: string
+  /** Pinned explain provider; only valid paired with `explainModel`. */
   readonly explainProvider?: string
+  /** Pinned explain model; only valid paired with `explainProvider`. */
   readonly explainModel?: string
+  /** Completion token budget of one explain request. */
   readonly explainMaxTokens: number
+  /** Sentence cap applied to one explanation. */
   readonly explainMaxSentences: number
+  /** Wall-clock budget of one explain request before it is abandoned. */
   readonly explainTimeoutMs: number
+  /** Longest word an explain or remember request may carry. */
   readonly explainTermMaxChars: number
+  /** Byte budget of the selection context sent with an explain request. */
   readonly explainContextMaxBytes: number
 }
-
-/** Host configuration of the terminology plugin; every field carries its default. */
-export const TerminologyConfigSchema: z<TerminologyConfig> = z.object({
-  enabled: z.boolean().default(true),
-  terms: z.array(glossaryTermSchema).default([]),
-  explainShortcut: z.string().default(DEFAULT_EXPLAIN_SHORTCUT),
-  projectGlossaryPath: z.string().default(DEFAULT_PROJECT_GLOSSARY_PATH),
-  explainProvider: z.string(),
-  explainModel: z.string(),
-  explainMaxTokens: z.number().min(1).default(256),
-  explainMaxSentences: z.number().min(1).default(3),
-  explainTimeoutMs: z.number().min(1).default(30_000),
-  explainTermMaxChars: z.number().min(1).default(64),
-  explainContextMaxBytes: z.number().min(1).default(2_048),
-})
 
 /** Project glossary file body: `{ terms: [...] }`, duplicate terms rejected. */
 export const projectGlossaryFileSchema = zod.object({

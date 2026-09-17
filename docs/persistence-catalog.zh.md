@@ -858,7 +858,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
 'terminology/explain-request': TerminologyExplainRequestEventData
 ```
 
-来源：[`packages/client/ui-terminology/src/types.ts:104`](../packages/client/ui-terminology/src/types.ts)
+来源：[`packages/client/ui-terminology/src/types.ts:108`](../packages/client/ui-terminology/src/types.ts)
 
 ### `todo/*`
 

@@ -8,7 +8,9 @@ import type { SessionId } from '@deepseek-ai/dsh-session/types'
 
 /** One glossary entry shared by both layers and every boundary. */
 export interface GlossaryTerm {
+  /** The term text, matched verbatim and case-sensitively. */
   readonly term: string
+  /** Plain-prose explanation shown in the tooltip; no markup or actions. */
   readonly explanation: string
 }
 

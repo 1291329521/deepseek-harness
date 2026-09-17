@@ -90,7 +90,10 @@ export class TerminologyCardPolicy {
     this.source = createSnapshotStore<TerminologyCardState>(this.read())
   }
 
-  /** Follow both sources into the card snapshot; @returns the disposer. */
+  /**
+   * Follow both sources into the card snapshot.
+   * @returns the disposer that stops following both sources.
+   */
   watch(): () => void {
     const follow = (): void => { this.adopt() }
     const off = [this.deps.scope.subscribe(follow), this.deps.glossary.subscribe(follow)]
@@ -100,7 +103,10 @@ export class TerminologyCardPolicy {
     }
   }
 
-  /** The card's injected face: the published snapshot plus the write verbs. */
+  /**
+   * The card's injected face: the published snapshot plus the write verbs.
+   * @returns the hooks source and write actions the settings card consumes.
+   */
   inject(): TerminologyCardInjected {
     return {
       hooks: { terminologyCard: this.source },

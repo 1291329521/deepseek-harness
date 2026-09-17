@@ -356,6 +356,50 @@ export interface Config {
 
 来源：[`packages/client/hmr/src/index.ts:31`](../packages/client/hmr/src/index.ts)
 
+<a id="deepseek-aidsh-client-ui-terminology"></a>
+
+## `@deepseek-ai/dsh-client-ui-terminology`
+
+需要：`settings` · `sessions` · `llm` · `sessionProjections`
+
+```ts config-catalog
+/** Validated Host configuration; its schemastery schema lives inline on `TerminologyService.Config`. */
+export interface TerminologyConfig {
+  /** Master switch for terminology annotation across both vocabulary layers. */
+  readonly enabled: boolean
+  /** Schemastery array fields stay mutable; entries are readonly values. */
+  terms: GlossaryTerm[]
+  /** Default manual-explain chord surfaced by the settings card. */
+  readonly explainShortcut: string
+  /** Project glossary file, workspace-relative; absolute or escaping paths never resolve. */
+  readonly projectGlossaryPath: string
+  /** Pinned explain provider; only valid paired with `explainModel`. */
+  readonly explainProvider?: string
+  /** Pinned explain model; only valid paired with `explainProvider`. */
+  readonly explainModel?: string
+  /** Completion token budget of one explain request. */
+  readonly explainMaxTokens: number
+  /** Sentence cap applied to one explanation. */
+  readonly explainMaxSentences: number
+  /** Wall-clock budget of one explain request before it is abandoned. */
+  readonly explainTimeoutMs: number
+  /** Longest word an explain or remember request may carry. */
+  readonly explainTermMaxChars: number
+  /** Byte budget of the selection context sent with an explain request. */
+  readonly explainContextMaxBytes: number
+}
+
+/** One glossary entry shared by both layers and every boundary. */
+export interface GlossaryTerm {
+  /** The term text, matched verbatim and case-sensitively. */
+  readonly term: string
+  /** Plain-prose explanation shown in the tooltip; no markup or actions. */
+  readonly explanation: string
+}
+```
+
+来源：[`packages/client/ui-terminology/src/spec.ts:45`](../packages/client/ui-terminology/src/spec.ts)
+
 <a id="deepseek-aidsh-code-runtime-worker-thread"></a>
 
 ## `@deepseek-ai/dsh-code-runtime-worker-thread`

@@ -307,6 +307,13 @@ const SERVICE_ROLES: ServiceRole[] = [
     note: 'Owns local per-assistant-message feedback, lifecycle and target validation, per-item compare-and-set, and the Host unary Remote contract without entering Session history or telemetry.',
   },
   {
+    key: 'terminology',
+    pkg: 'client-ui-terminology',
+    title: 'Inline terminology vocabulary',
+    mode: 'core',
+    note: 'Owns the two vocabulary layers, the project-file watcher, the resolved-vocabulary render input, and the manual explain pipeline behind a durable request record.',
+  },
+  {
     key: 'workspaceRegistry',
     pkg: 'workspace',
     title: 'Workspace entity registry',

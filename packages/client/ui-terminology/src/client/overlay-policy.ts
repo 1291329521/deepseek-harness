@@ -68,12 +68,19 @@ export class OverlayPolicy {
     this.deps = deps
   }
 
-  /** Offer the takeover menu for one accepted selection. */
+  /**
+   * Offer the takeover menu for one accepted selection.
+   * @param selection - the accepted term, context, and anchor rect.
+   */
   openMenu(selection: OverlaySelection): void {
     this.request.set({ kind: 'menu', ...selection })
   }
 
-  /** Show the refusal itself: a selection over the term limit gets a reason, not silence. */
+  /**
+   * Show the refusal itself: a selection over the term limit gets a reason, not silence.
+   * @param term - the over-long selection shown verbatim.
+   * @param rect - the anchor rect the panel opens against.
+   */
   openTooLong(term: string, rect: OverlayRect): void {
     this.openPanel({ term, context: '', rect, stage: 'failed', error: 'TERM_INVALID' })
   }
@@ -103,7 +110,10 @@ export class OverlayPolicy {
     return await this.run(panel.term, panel.context)
   }
 
-  /** Choose which glossary layer a save writes to. */
+  /**
+   * Choose which glossary layer a save writes to.
+   * @param layer - the glossary layer the panel's save targets.
+   */
   setLayer(layer: GlossaryLayer): void {
     const panel = this.panel()
     if (panel === undefined) return

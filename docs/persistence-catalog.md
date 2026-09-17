@@ -856,7 +856,7 @@ Source: [`packages/experimental/agent-team/src/types.ts:223`](../packages/experi
 'terminology/explain-request': TerminologyExplainRequestEventData
 ```
 
-Source: [`packages/client/ui-terminology/src/types.ts:104`](../packages/client/ui-terminology/src/types.ts)
+Source: [`packages/client/ui-terminology/src/types.ts:108`](../packages/client/ui-terminology/src/types.ts)
 
 ### `todo/*`
 
