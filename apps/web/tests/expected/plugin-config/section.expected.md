@@ -40,3 +40,22 @@
         - 'button "展开设置: 网页搜索"':
           - text: 网页搜索 DeepSeek 搜索提供方。
           - img
+      - heading "术语解释" [level=3]
+      - checkbox "在助手回复中标注术语" [checked]
+      - text: 在助手回复中标注术语 手动解释快捷键
+      - textbox "手动解释快捷键": Alt+Shift+E
+      - group "全局术语表":
+        - text: 全局术语表
+        - paragraph: 还没有全局术语。
+        - textbox "新术语":
+          - /placeholder: 术语
+        - textbox "新解释":
+          - /placeholder: 解释
+        - button "添加术语" [disabled]
+      - group "本项目术语表":
+        - text: 本项目术语表
+        - paragraph: 项目术语表为空。
+        - list
+        - paragraph: 项目术语表由工作区文件维护，这里只读。
+        - paragraph
+        - button "在编辑器中打开"
